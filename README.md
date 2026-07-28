@@ -56,7 +56,7 @@ das decisões técnicas. O processo foi:
 3. cada resultado foi revisado por integrantes do grupo: o contrato foi lido
    linha a linha e compilado antes de aceito, os diagramas foram conferidos
    contra a versão original do grupo, e o texto foi ajustado sempre que
-   alguma decisão gerada não refletia exatamente o que o grupo pretendia.
+   alguma decisão gerada não refletia exatamente o que o grupo pretendia;
 4. modelos diferentes de IA foram utilizados para a produção guiada e compreensão
    do código do contrato em Solidity.
 
