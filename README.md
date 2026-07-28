@@ -18,25 +18,21 @@ o evento de quitação.
 
 ## Demonstração no Remix
 
-1. Abra o [Remix](https://remix.ethereum.org/), crie
-   `SeguroParametrico.sol` e copie o conteúdo de `contracts/`.
-2. Compile com Solidity `0.8.24` ou compatível com `^0.8.24`.
-3. Escolha uma conta para ser o oracle e passe seu endereço ao construtor.
-4. Troque para a conta da companhia, informe pelo menos `0.01 ETH` em
-   **VALUE** e execute `depositarFundo`.
-5. Volte à conta do oracle e execute `cadastrarVoo` com um ID, o endereço da
-   companhia e uma terceira conta como passageiro.
-6. Ainda como oracle, execute `registrarAtraso` com o mesmo ID e `3` horas.
-7. Confira:
-   - a transação e os eventos `AtrasoRegistrado`, `PagamentoRealizado` e
-     `QuitacaoEmitida`;
-   - `consultarVoo(id)`, cujo campo `pago` será `true`;
-   - `consultarSaldo(empresa)`, reduzido em `0.01 ETH`;
-   - o saldo da conta do passageiro, acrescido da indenização.
-
-Para demonstrar fundo insuficiente, cadastre outro ID de voo para uma companhia
-sem depósito e registre atraso de `3` horas. A transação será concluída sem
-pagamento e a função retornará `Companhia sem fundo suficiente`.
+1. Acesse [remix.ethereum.org](https://remix.ethereum.org), crie um arquivo `SeguroParametrico.sol` e cole o código do contrato.
+2. Vá em **Solidity Compiler**, selecione a versão `0.8.24` e clique em **Compile**.
+3. Vá em **Deploy & Run Transactions**, deixe o **Environment** como `Remix VM`. Você terá várias contas de teste com 100 ETH cada — use:
+   - **Conta 1** → Oráculo
+   - **Conta 2** → Companhia aérea
+   - **Conta 3** → Passageiro
+4. Com a **Conta 1** selecionada, cole o endereço da própria **Conta 1** no campo do construtor e clique em **Deploy**.
+5. **Depósito do escrow:** troque para a **Conta 2**, coloque `1` no campo **Value** (unidade `Ether`) e chame `depositarFundo`.
+6. **Cadastro do voo:** volte para a **Conta 1**. Coloque **Value = 0** (importante!) e chame `cadastrarVoo(vooId, enderecoEmpresa, enderecoPassageiro)`.
+7. **Registro do atraso e pagamento automático:** ainda na Conta 1, com **Value = 0**, chame `registrarAtraso(vooId, atrasoHoras)` — use um valor `> 2` para disparar o pagamento. Confira no console os eventos `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`.
+8. **Conferir o estado:**
+   - `consultarSaldo(enderecoEmpresa)` → saldo do escrow da companhia, em wei (ex: `980000000000000000` = `0,98 ETH`).
+   - `consultarVoo(vooId)` → mostra o voo com `pago: true`.
+   - Saldo da carteira do passageiro (Conta 3) aumenta em `0,01 ETH` — visível no dropdown **Account**.
+> ⚠️ **Atenção ao campo Value:** ele só deve ter valor diferente de zero na chamada de `depositarFundo` (a única função `payable`). Nas demais funções, deixe **Value = 0**, senão a transação reverte.
 
 ## Regra paramétrica atual
 
@@ -61,5 +57,7 @@ das decisões técnicas. O processo foi:
    linha a linha e compilado antes de aceito, os diagramas foram conferidos
    contra a versão original do grupo, e o texto foi ajustado sempre que
    alguma decisão gerada não refletia exatamente o que o grupo pretendia.
+4. modelos diferentes de IA foram utilizados para a produção guiada e compreensão
+   do código do contrato em Solidity.
 
 
