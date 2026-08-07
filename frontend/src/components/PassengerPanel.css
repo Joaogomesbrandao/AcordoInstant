@@ -1,0 +1,54 @@
+.passenger-panel {
+  padding: 1.5rem;
+}
+
+.info-box {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  border-left: 4px solid #34d399;
+}
+
+.info-box p {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  margin-bottom: 0.35rem;
+  word-break: break-all;
+}
+
+.info-box p:last-child {
+  margin-bottom: 0;
+}
+
+.status-paid {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.status-pending {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.penalty-box {
+  display: flex;
+  flex-direction: column;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.penalty-label {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.penalty-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #34d399;
+  font-family: 'Fira Code', monospace;
+}

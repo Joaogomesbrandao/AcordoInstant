@@ -1,0 +1,107 @@
+.wallet-panel {
+  padding: 1.5rem;
+}
+
+.wallet-card {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-width: 600px;
+  margin: 0 auto;
+  backdrop-filter: blur(8px);
+}
+
+.wallet-title {
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
+  color: #38bdf8;
+}
+
+.contract-field {
+  margin-bottom: 1.25rem;
+}
+
+.contract-field label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #94a3b8;
+}
+
+.contract-field input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #0f172a;
+  color: #f1f5f9;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.contract-field input:focus {
+  border-color: #38bdf8;
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+}
+
+.wallet-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.btn {
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-weight: 600;
+  transition: transform 0.15s, background 0.2s;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%);
+}
+
+.btn-secondary {
+  background: rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+.wallet-info {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.wallet-info p {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.wallet-address {
+  font-family: 'Fira Code', monospace;
+  color: #38bdf8;
+  word-break: break-all;
+  margin-top: 0.25rem;
+}

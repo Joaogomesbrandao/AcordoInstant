@@ -1,0 +1,103 @@
+.airline-panel {
+  padding: 1.5rem;
+}
+
+.panel-card {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-width: 600px;
+  margin: 0 auto;
+  backdrop-filter: blur(8px);
+}
+
+.panel-title {
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
+  color: #38bdf8;
+}
+
+.balance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.balance-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.balance-label {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.balance-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #34d399;
+  font-family: 'Fira Code', monospace;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+}
+
+.btn-outline:hover {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.action-group {
+  margin-bottom: 1.25rem;
+}
+
+.action-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #94a3b8;
+}
+
+.action-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #0f172a;
+  color: #f1f5f9;
+  font-size: 0.95rem;
+  outline: none;
+  margin-bottom: 0.75rem;
+  transition: border-color 0.2s;
+}
+
+.action-group input:focus {
+  border-color: #38bdf8;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+}
+
+.panel-message {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(56, 189, 248, 0.1);
+  border-left: 4px solid #38bdf8;
+  font-size: 0.875rem;
+  color: #e0f2fe;
+}

@@ -15,6 +15,7 @@ o evento de quitação.
 - `docs/arquitetura.md`: diagrama de sequência do fluxo da função central.
 - `docs/diagrama-classes.md`: diagrama de classes do contrato — atributos,
   funções e relações.
+- `frontend/`: interface web em React + TypeScript para interagir com o contrato.
 
 ## Demonstração no Remix
 
@@ -42,6 +43,44 @@ o evento de quitação.
   pode ser feita após a companhia depositar fundos.
 
 ETH é usado apenas como unidade de demonstração.
+
+## Frontend (React + TypeScript)
+
+O projeto possui uma interface web local em `frontend/` para interagir com o contrato de forma visual.
+
+### Executar o frontend
+
+1. Abra um terminal na pasta `frontend`:
+   ```bash
+   cd frontend
+   ```
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+3. Inicie o servidor de desenvolvimento:
+   ```bash
+   npm run dev
+   ```
+4. Acesse no navegador: **http://localhost:3000/**
+
+### Como usar a interface
+
+1. **Deploy do contrato:** siga os passos da seção **Demonstração no Remix** para compilar e publicar o contrato. Anote o endereço do contrato.
+2. **Conexão:** na aba **Conexão**, cole o endereço do contrato deployado e clique em **Conectar MetaMask**. A MetaMask deve estar instalada e apontada para a mesma rede usada no deploy (por padrão, `Remix VM` só funciona dentro do Remix; para testar via MetaMask, use uma rede local como Hardhat Network ou Ganache, ou use o Remix com **Environment = Injected Provider**).
+3. **Companhia aérea:** na aba **Companhia**, a conta da empresa pode depositar o fundo de garantia e consultar o saldo em escrow.
+4. **Passageiro:** na aba **Passageiro**, qualquer pessoa pode consultar os dados de um voo e calcular a indenização estimada para um determinado atraso.
+5. **Oráculo:** na aba **Oráculo**, somente a carteira autorizada no construtor do contrato pode cadastrar voos e registrar atrasos. Se o atraso for maior que 2 horas e houver saldo suficiente, o pagamento é disparado automaticamente.
+
+### Estrutura do frontend
+
+- `src/App.tsx`: componente principal com navegação em abas.
+- `src/components/WalletPanel.tsx`: conexão com MetaMask e endereço do contrato.
+- `src/components/AirlinePanel.tsx`: depósito, resgate e consulta de saldo da companhia.
+- `src/components/PassengerPanel.tsx`: consulta de voo e cálculo de indenização.
+- `src/components/OraclePanel.tsx`: cadastro de voo e registro de atraso (restrito ao oráculo).
+- `src/contract.ts`: ABI do `SeguroParametrico.sol`.
+- Cada componente possui seu próprio arquivo `.css` para personalização visual.
 
 ## Uso de Inteligência Artificial
 
