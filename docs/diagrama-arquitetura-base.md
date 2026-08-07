@@ -22,9 +22,9 @@ flowchart TB
 
     subgraph ON["On-chain (blockchain)"]
         direction LR
-        Oracle("Oracle<br/>Recebe dados do backend e chama<br/>registrarAtraso(vooId, atrasoHoras)")
-        Seguro("SeguroParametrico.sol<br/>depositarFundo · calcularMulta<br/>resgatarFundo · consultas")
-        Oracle --> Seguro
+        Oracle("Oracle<br/>Ponte de comunicação (repassa dados)<br/>NÃO realiza chamadas com privilégios")
+        Seguro("SeguroParametrico.sol<br/>cadastrarVoo (chamada pela Companhia) · registrarAtraso (chamada pelo Passageiro)<br/>depositarFundo · calcularMulta · resgatarFundo · consultas")
+        %% O oracle atua como ponte; as transações on-chain são feitas pelas contas apropriadas
     end
 
     Passageiro1 --> Frontend
@@ -45,10 +45,11 @@ flowchart TB
 ## Observação sobre a posição do Oracle no diagrama
 
 O módulo `oracle/oracle.js` roda fora da blockchain, como um script Node.js
-comum — ele não é um smart contract. Ele é desenhado dentro da caixa
-"On-chain" apenas para representar seu papel: é a única peça do sistema que
-tem permissão para gravar dados no contrato. Todo o resto do fluxo (frontend,
-backend, banco mockado) nunca toca o contrato diretamente.
+comum — ele não é um smart contract. Neste novo desenho o Oracle atua apenas
+como ponte de comunicação (repassando/normalizando dados entre backend e
+frontends) e **não** possui privilégios para escrever no contrato. As
+transações on-chain são executadas pelas carteiras das partes envolvidas
+(companhia e passageiro) quando apropriado.
 
 ## Observação sobre o frontend da companhia aérea
 
@@ -95,10 +96,11 @@ auditoria, reduzindo custo e evitando a exposição de dados pessoais.
 
 - **Um único contrato:** fundo, regra paramétrica e quitação permanecem juntos
   para reduzir o número de implantações e facilitar a demonstração.
-- **Oracle separado do backend:** não existe `OracleRegistry`, mas o Oracle
-  também não é o backend. `backend/server.js` só consulta o banco mockado;
-  quem chama `cadastrarVoo` e `registrarAtraso` é o módulo
-  `oracle/oracle.js`, dono da carteira definida como `oraculo` no construtor.
+- **Oracle separado do backend:** não existe `OracleRegistry`; o Oracle
+  permanece separado do backend e funciona como um componente de
+  integração/ponte. `backend/server.js` só consulta o banco mockado; as
+  chamadas on-chain são feitas pelas carteiras da companhia (para
+  `cadastrarVoo`) e do passageiro (para `registrarAtraso`).
 
 Este diagrama é uma versão preliminar. Durante próximas entregas iremos
 incorporar o frontend, testes, evidências de implantação e as
