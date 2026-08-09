@@ -1,0 +1,36 @@
+%% Diagrama de arquitetura no estilo do arquiteturaBase.jpeg,
+%% atualizado com os componentes e funções em desenvolvimento no AcordoInstant.
+flowchart TB
+    Passageiro1("Passageiro")
+    Companhia("Companhia aérea")
+    Passageiro2("Passageiro")
+
+    subgraph OFF["Off-chain"]
+        direction LR
+        Frontend("Frontend<br/>React - interface<br/>(passageiro e companhia)")
+        Backend("Backend<br/>Node.js - API")
+        Oracle("Oracle<br/>Consulta a fonte oficial e repassa<br/>o atraso ao backend (sem privilégios on-chain)")
+        Banco("Banco mockado<br/>Fonte oficial de dados de voos")
+        Frontend --> Backend
+        Backend --> Oracle
+        Oracle --> Banco
+    end
+
+    subgraph ON["On-chain (blockchain)"]
+        direction LR
+        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · registrarAtraso<br/>calcularMulta · resgatarFundo · consultas")
+    end
+
+    Passageiro1 --> Frontend
+    Companhia --> Frontend
+    Companhia -->|depositarFundo, cadastrarVoo| Seguro
+    Passageiro1 -->|registrarAtraso| Seguro
+    Seguro -->|PagamentoRealizado + QuitacaoEmitida| Passageiro2
+
+    classDef offchain fill:#e6e6fa,stroke:#8a7fc4,color:#3d3466;
+    classDef onchain fill:#d7f4e6,stroke:#57b892,color:#1c6b4d;
+    classDef atores fill:#efece2,stroke:#b5ad9d,color:#3a3a3a;
+
+    class Frontend,Backend,Oracle,Banco offchain;
+    class Seguro onchain;
+    class Passageiro1,Passageiro2,Companhia atores;

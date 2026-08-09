@@ -1,10 +1,12 @@
 # Diagrama de arquitetura
 
 Versão em Mermaid do diagrama original do grupo (`arquiteturaBase.jpeg`),
-atualizada com os nomes e funções que estão sendo implementados. O Oracle
-aparece como um componente próprio, separado do `SeguroParametrico.sol`: o
-backend não chama o contrato diretamente, ele aciona o Oracle, e só o Oracle
-tem permissão para escrever no contrato.
+atualizada com os nomes e funções que estão sendo implementados. O Oracle é
+um componente off-chain, junto com o frontend, o backend e o banco mockado:
+ele consulta a fonte oficial dos dados do voo e repassa o atraso ao backend,
+mas não possui nenhum privilégio no `SeguroParametrico.sol` e não assina
+transações. Quem escreve no contrato são as próprias carteiras da companhia
+e do passageiro.
 
 ```mermaid
 flowchart TB
@@ -16,39 +18,48 @@ flowchart TB
         direction LR
         Frontend("Frontend<br/>React - interface<br/>(passageiro e companhia)")
         Backend("Backend<br/>Node.js - API")
-        Banco("Banco mockado<br/>Dados de voos")
-        Frontend --> Backend --> Banco
+        Oracle("Oracle<br/>Consulta a fonte oficial e repassa<br/>o atraso ao backend (sem privilégios on-chain)")
+        Banco("Banco mockado<br/>Fonte oficial de dados de voos")
+        Frontend --> Backend
+        Backend --> Oracle
+        Oracle --> Banco
     end
 
     subgraph ON["On-chain (blockchain)"]
         direction LR
-        Oracle("Oracle<br/>Recebe dados do backend e chama<br/>registrarAtraso(vooId, atrasoHoras)")
-        Seguro("SeguroParametrico.sol<br/>depositarFundo · calcularMulta<br/>resgatarFundo · consultas")
-        Oracle --> Seguro
+        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · registrarAtraso<br/>calcularMulta · resgatarFundo · consultas")
     end
 
     Passageiro1 --> Frontend
     Companhia --> Frontend
-    Backend --> Oracle
-    Companhia -->|depositarFundo| Seguro
+    Companhia -->|depositarFundo, cadastrarVoo| Seguro
+    Passageiro1 -->|registrarAtraso| Seguro
     Seguro -->|PagamentoRealizado + QuitacaoEmitida| Passageiro2
 
     classDef offchain fill:#e6e6fa,stroke:#8a7fc4,color:#3d3466;
     classDef onchain fill:#d7f4e6,stroke:#57b892,color:#1c6b4d;
     classDef atores fill:#efece2,stroke:#b5ad9d,color:#3a3a3a;
 
-    class Frontend,Backend,Banco offchain;
-    class Oracle,Seguro onchain;
+    class Frontend,Backend,Oracle,Banco offchain;
+    class Seguro onchain;
     class Passageiro1,Passageiro2,Companhia atores;
 ```
 
+As chamadas apontadas diretamente para `SeguroParametrico.sol`
+(`depositarFundo`, `cadastrarVoo` e `registrarAtraso`) representam transações
+assinadas pela carteira conectada do próprio ator — a companhia ou o
+passageiro — nunca pelo backend ou pelo Oracle.
+
 ## Observação sobre a posição do Oracle no diagrama
 
-O módulo `oracle/oracle.js` roda fora da blockchain, como um script Node.js
-comum — ele não é um smart contract. Ele é desenhado dentro da caixa
-"On-chain" apenas para representar seu papel: é a única peça do sistema que
-tem permissão para gravar dados no contrato. Todo o resto do fluxo (frontend,
-backend, banco mockado) nunca toca o contrato diretamente.
+O módulo `oracle/oracle.js` é um componente off-chain executado como
+serviço/script Node.js. Ele consulta a fonte de dados dos voos e atua como
+ponte de comunicação entre os dados externos e o sistema. Ele não é um smart
+contract e não possui privilégios especiais no `SeguroParametrico.sol`: não
+tem endereço cadastrado no contrato, não passa por nenhum modifier de acesso
+e não assina nenhuma transação. As transações on-chain são executadas pelas
+próprias carteiras das partes envolvidas — a companhia chama
+`cadastrarVoo`/`depositarFundo`, e o passageiro chama `registrarAtraso`.
 
 ## Observação sobre o frontend da companhia aérea
 
@@ -73,20 +84,23 @@ ordem — está no diagrama de sequência, em
 Ficam on-chain:
 
 - identificador numérico do voo;
-- endereços da companhia e do passageiro;
-- atraso em horas informado pelo oráculo;
+- endereço da companhia;
+- endereço do passageiro;
+- atraso em horas registrado pelo passageiro;
 - saldo de garantia de cada companhia;
 - indicação de pagamento;
-- eventos de depósito, atraso, pagamento e quitação.
+- eventos de depósito, cadastro, atraso, pagamento e quitação.
 
 Ficam off-chain:
 
 - horários, origem, destino e demais informações operacionais do voo;
 - dados pessoais e documentos do passageiro;
-- chave privada do oráculo, usada apenas pelo módulo `oracle/oracle.js`;
 - backend (`backend/server.js`), responsável só pela orquestração da API;
-- interface e regras de apresentação;
-- banco mockado, posteriormente substituível por uma API de voos.
+- frontend, com a interface e as regras de apresentação;
+- banco mockado, posteriormente substituível por uma API de voos;
+- Oracle (`oracle/oracle.js`), responsável por consultar a fonte oficial e
+  repassar o atraso ao backend — não guarda nenhuma chave usada para assinar
+  transações do contrato, pois não escreve na blockchain.
 
 Essa divisão mantém na blockchain apenas os dados necessários à execução e à
 auditoria, reduzindo custo e evitando a exposição de dados pessoais.
@@ -95,10 +109,15 @@ auditoria, reduzindo custo e evitando a exposição de dados pessoais.
 
 - **Um único contrato:** fundo, regra paramétrica e quitação permanecem juntos
   para reduzir o número de implantações e facilitar a demonstração.
-- **Oracle separado do backend:** não existe `OracleRegistry`, mas o Oracle
-  também não é o backend. `backend/server.js` só consulta o banco mockado;
-  quem chama `cadastrarVoo` e `registrarAtraso` é o módulo
-  `oracle/oracle.js`, dono da carteira definida como `oraculo` no construtor.
+- **Oracle separado do backend, sem privilégios on-chain:** o Oracle continua
+  sendo um componente distinto do backend, mas atua apenas como ponte de
+  integração — consulta a fonte oficial de dados do voo e repassa o atraso ao
+  backend. Ele não possui endereço cadastrado no contrato, não tem nenhuma
+  função restrita a ele e não assina transações.
+- **Cada ator assina a própria transação:** a companhia chama
+  `depositarFundo` e `cadastrarVoo` com a própria carteira; o passageiro
+  chama `registrarAtraso` com a própria carteira. Nem o backend nem o Oracle
+  executam transações em nome de outros atores.
 
 Este diagrama é uma versão preliminar. Durante próximas entregas iremos
 incorporar o frontend, testes, evidências de implantação e as
