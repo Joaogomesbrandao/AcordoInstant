@@ -18,13 +18,13 @@ flowchart TB
 
     subgraph ON["On-chain (blockchain)"]
         direction LR
-        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · registrarAtraso<br/>calcularMulta · resgatarFundo · consultas")
+        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · inscreverNoVoo<br/>registrarAtraso · calcularMulta · resgatarFundo · consultas")
     end
 
     Passageiro1 --> Frontend
     Companhia --> Frontend
     Companhia -->|depositarFundo, cadastrarVoo| Seguro
-    Passageiro1 -->|registrarAtraso| Seguro
+    Passageiro1 -->|inscreverNoVoo, registrarAtraso| Seguro
     Seguro -->|PagamentoRealizado + QuitacaoEmitida| Passageiro2
 
     classDef offchain fill:#e6e6fa,stroke:#8a7fc4,color:#3d3466;

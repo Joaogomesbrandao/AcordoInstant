@@ -1,18 +1,20 @@
 # AcordoInstant
 
 Protótipo de seguro paramétrico para atraso de voos: a companhia deposita um
-fundo de garantia no contrato e cadastra o voo com sua própria carteira; o
-passageiro confere o atraso oficial do voo (consultado pelo Oracle) e, ao
-confirmar, registra esse atraso no contrato com sua própria carteira. O
-contrato calcula a indenização e paga o passageiro automaticamente quando as
-condições são satisfeitas, emitindo o evento de quitação.
+fundo de garantia no contrato e cadastra o voo (número e horários de partida
+e chegada) com sua própria carteira; qualquer passageiro se inscreve nesse
+voo por conta própria. Quando há atraso, o passageiro confere o valor oficial
+(consultado pelo Oracle) e, ao confirmar, registra esse atraso no contrato
+com sua própria carteira. O contrato calcula a indenização e paga o
+passageiro automaticamente quando as condições são satisfeitas, emitindo o
+evento de quitação.
 
 ## Conteúdo
 
 - `contracts/SeguroParametrico.sol`: único smart contract do projeto.
-  Funções centrais: `cadastrarVoo` (chamada pela companhia) e
-  `registrarAtraso` (chamada pelo passageiro), que calcula a multa e paga o
-  passageiro se houver saldo, com `depositarFundo` como função de apoio ao
+  Funções centrais: `cadastrarVoo` (chamada pela companhia), `inscreverNoVoo`
+  e `registrarAtraso` (chamadas pelo passageiro), que calcula a multa e paga
+  o passageiro se houver saldo, com `depositarFundo` como função de apoio ao
   fluxo.
 - `oracle/oracle.js`: componente off-chain de consulta/integração — busca o
   atraso oficial na fonte de dados do voo e o repassa ao backend. Não possui
@@ -30,7 +32,11 @@ O Oracle não participa das transações on-chain. Ele apenas consulta o banco
 mockado (que representa a fonte/API oficial da companhia) e repassa o atraso
 oficial ao backend, que o entrega ao frontend para exibição ao passageiro.
 Somente depois de conferir esse valor o passageiro assina, com a própria
-carteira, a transação `registrarAtraso(vooId, atrasoHoras)`. A demonstração
+carteira, a transação
+`registrarAtraso(vooId, atrasoHorasInformado, atrasoHorasOficial)` — o
+segundo argumento é apenas o valor que o próprio passageiro digitou como
+referência (não interfere no pagamento); o terceiro é o valor oficial do
+Oracle, usado no cálculo da indenização. A demonstração
 abaixo, no Remix, cobre apenas a parte on-chain desse fluxo (as transações
 assinadas pela companhia e pelo passageiro); a consulta do atraso oficial
 pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
@@ -44,14 +50,16 @@ pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
    - **Conta 2** → Passageiro
 4. O construtor não recebe argumentos: com qualquer conta selecionada, clique em **Deploy**.
 5. **Depósito do escrow:** com a **Conta 1** (Companhia) selecionada, coloque `1` no campo **Value** (unidade `Ether`) e chame `depositarFundo`.
-6. **Cadastro do voo:** ainda com a **Conta 1**, coloque **Value = 0** (importante!) e chame `cadastrarVoo(vooId, enderecoDoPassageiro)` — o contrato usa `msg.sender` (a Conta 1) como endereço da empresa automaticamente.
-7. **Registro do atraso e pagamento automático:** troque para a **Conta 2** (Passageiro). Com **Value = 0**, chame `registrarAtraso(vooId, atrasoHoras)` — use um valor `> 2` para disparar o pagamento. Confira no console os eventos `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`.
-8. **Conferir o estado:**
+6. **Cadastro do voo:** ainda com a **Conta 1**, coloque **Value = 0** (importante!) e chame `cadastrarVoo(vooId, horarioPartida, horarioChegada)` — os horários são timestamps Unix (segundos) e o contrato usa `msg.sender` (a Conta 1) como endereço da empresa automaticamente.
+7. **Inscrição do passageiro:** troque para a **Conta 2** (Passageiro). Com **Value = 0**, chame `inscreverNoVoo(vooId)` para se vincular ao voo cadastrado.
+8. **Registro do atraso e pagamento automático:** ainda com a **Conta 2**, chame `registrarAtraso(vooId, atrasoHorasInformado, atrasoHorasOficial)` — use um valor de `atrasoHorasOficial` `> 2` para disparar o pagamento (`atrasoHorasInformado` é livre, fica apenas registrado). Confira no console os eventos `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`.
+9. **Conferir o estado:**
    - `consultarSaldo(enderecoDaCompanhia)` → saldo do escrow da companhia, em wei (ex: `980000000000000000` = `0,98 ETH`).
-   - `consultarVoo(vooId)` → mostra o voo com `pago: true`.
+   - `consultarVoo(vooId)` → mostra o voo, incluindo `totalPassageiros`.
+   - `consultarInscricao(vooId, enderecoDoPassageiro)` → mostra `pago: true` para a Conta 2.
    - Saldo da carteira do passageiro (Conta 2) aumenta em `0,01 ETH` — visível no dropdown **Account**.
 > ⚠️ **Atenção ao campo Value:** ele só deve ter valor diferente de zero na chamada de `depositarFundo` (a única função `payable`). Nas demais funções, deixe **Value = 0**, senão a transação reverte.
-> ⚠️ **Atenção à conta selecionada:** `cadastrarVoo` deve ser chamada pela conta da companhia e `registrarAtraso` pela conta do passageiro vinculado ao voo — o contrato usa `msg.sender` para validar isso e reverte caso contrário.
+> ⚠️ **Atenção à conta selecionada:** `cadastrarVoo` deve ser chamada pela conta da companhia; `inscreverNoVoo` e `registrarAtraso` pela conta do passageiro — o contrato usa `msg.sender` para validar isso e reverte caso contrário.
 
 ## Regra paramétrica atual
 
@@ -85,18 +93,24 @@ O projeto possui uma interface web local em `frontend/` para interagir com o con
 ### Como usar a interface
 
 1. **Deploy do contrato:** siga os passos da seção **Demonstração no Remix** para compilar e publicar o contrato. Anote o endereço do contrato.
-2. **Conexão:** na aba **Conexão**, cole o endereço do contrato deployado e clique em **Conectar MetaMask**. A MetaMask deve estar instalada e apontada para a mesma rede usada no deploy (por padrão, `Remix VM` só funciona dentro do Remix; para testar via MetaMask, use uma rede local como Hardhat Network ou Ganache, ou use o Remix com **Environment = Injected Provider**).
-3. **Companhia aérea:** na aba **Companhia**, a conta da empresa pode depositar o fundo de garantia e consultar o saldo em escrow.
-4. **Passageiro:** na aba **Passageiro**, qualquer pessoa pode consultar os dados de um voo e calcular a indenização estimada para um determinado atraso.
-5. **Oráculo:** na aba **Oráculo**, somente a carteira autorizada no construtor do contrato pode cadastrar voos e registrar atrasos. Se o atraso for maior que 2 horas e houver saldo suficiente, o pagamento é disparado automaticamente.
+2. **Login:** na tela inicial, escolha um perfil (**Companhia aérea** ou **Passageiro**). Abaixo aparecem os dois campos necessários para entrar: o **endereço do contrato** implantado (ex: copiado do Remix) e o **endereço da carteira** desse perfil (ex: uma das contas do Remix). Não é preciso ter a MetaMask instalada — basta digitar os dois endereços e clicar em **Entrar**. Quem tiver a extensão pode, opcionalmente, usar o link "preencher com a MetaMask automaticamente" para preencher o campo da carteira com uma conta real e poder assinar transações de verdade.
+3. **Navegação:** depois de logado, o topo mostra as abas **Companhia** e **Passageiro** ao lado do nome do app. Cada aba usa seu próprio endereço — ao clicar na aba que ainda não tem um endereço definido (por exemplo, trocar de Companhia para Passageiro), a interface pede para informar o endereço desse outro perfil antes de mostrar o painel.
+4. **Painel da companhia:** depositar/resgatar o fundo de garantia, cadastrar voos (número + horários de partida e chegada) e ver a lista de voos já cadastrados.
+5. **Painel do passageiro:** inscrever-se em um voo pelo número, ver os voos em que já está inscrito e, para os que tiverem atraso, buscar o valor oficial junto ao Oracle e confirmar o registro que dispara o pagamento automático.
+6. **Trocar de conta ou sair:** o botão **Trocar de conta**, no canto superior direito, reabre o seletor de contas da MetaMask para a aba ativa (só funciona com a extensão instalada); **Sair** encerra a sessão por completo, voltando à tela de login.
+7. **Assinar transações de verdade:** como os endereços podem ser só digitados, ações que gravam algo no contrato (depositar, cadastrar voo, inscrever-se, registrar atraso) só funcionam quando o endereço do perfil ativo estiver de fato conectado via MetaMask — a interface avisa quando isso não é o caso. Sem a extensão, dá para navegar e explorar toda a interface, mas quem assina as transações de verdade é o Remix (veja a seção **Demonstração no Remix**).
 
 ### Estrutura do frontend
 
-- `src/App.tsx`: componente principal com navegação em abas.
-- `src/components/WalletPanel.tsx`: conexão com MetaMask e endereço do contrato.
-- `src/components/AirlinePanel.tsx`: depósito, resgate e consulta de saldo da companhia.
-- `src/components/PassengerPanel.tsx`: consulta de voo e cálculo de indenização.
-- `src/components/OraclePanel.tsx`: cadastro de voo e registro de atraso (restrito ao oráculo).
+- `src/App.tsx`: orquestra o login, mantém uma carteira independente por papel (companhia/passageiro), o endereço do contrato e qual painel exibir.
+- `src/components/LoginScreen.tsx`: tela inicial — escolha do perfil, endereço do contrato e endereço da carteira desse perfil (digitado ou preenchido via MetaMask).
+- `src/components/TopBar.tsx`: cabeçalho fixo com as abas Companhia/Passageiro, o endereço do contrato, a carteira ativa e os botões de trocar de conta/sair.
+- `src/components/ContractGate.tsx`: tela de segurança para redefinir o endereço do contrato, caso ele seja limpo depois do login.
+- `src/components/RoleConnectGate.tsx`: tela exibida ao trocar para uma aba cujo perfil ainda não tem um endereço definido.
+- `src/components/AirlinePanel.tsx`: fundo de garantia, cadastro e listagem de voos da companhia.
+- `src/components/PassengerPanel.tsx`: inscrição em voos, listagem dos voos do passageiro e fluxo de indenização.
+- `src/hooks/useWallet.ts`: mantém o endereço de cada papel (digitável) e, opcionalmente, conecta a MetaMask para anexar um `signer` real (uma instância por papel).
+- `src/utils/address.ts`: validação e formatação de endereços.
 - `src/contract.ts`: ABI do `SeguroParametrico.sol`.
 - Cada componente possui seu próprio arquivo `.css` para personalização visual.
 

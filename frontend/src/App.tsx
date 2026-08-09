@@ -1,74 +1,95 @@
 import { useState } from 'react';
-import { JsonRpcSigner } from 'ethers';
-import { WalletPanel } from './components/WalletPanel';
+import { LoginScreen } from './components/LoginScreen';
+import { TopBar } from './components/TopBar';
+import { ContractGate } from './components/ContractGate';
+import { RoleConnectGate } from './components/RoleConnectGate';
 import { AirlinePanel } from './components/AirlinePanel';
 import { PassengerPanel } from './components/PassengerPanel';
-import { OraclePanel } from './components/OraclePanel';
+import { useWallet } from './hooks/useWallet';
+import { isValidAddress } from './utils/address';
+import type { Role } from './types/role';
 import './App.css';
 
-type Tab = 'wallet' | 'airline' | 'passenger' | 'oracle';
-
 export default function App() {
-  const [signer, setSigner] = useState<JsonRpcSigner | null>(null);
-  const [walletAddress, setWalletAddress] = useState('');
+  const [entered, setEntered] = useState(false);
+  const [activeTab, setActiveTab] = useState<Role>('airline');
   const [contractAddress, setContractAddress] = useState('');
-  const [activeTab, setActiveTab] = useState<Tab>('wallet');
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'wallet', label: 'Conexão' },
-    { id: 'airline', label: 'Companhia' },
-    { id: 'passenger', label: 'Passageiro' },
-    { id: 'oracle', label: 'Oráculo' },
-  ];
+  const airlineWallet = useWallet();
+  const passengerWallet = useWallet();
+  const wallets: Record<Role, ReturnType<typeof useWallet>> = {
+    airline: airlineWallet,
+    passenger: passengerWallet,
+  };
+
+  const hasValidContract = isValidAddress(contractAddress);
+  const activeWallet = wallets[activeTab];
+  const hasValidWallet = isValidAddress(activeWallet.address);
+
+  function handleEnter(role: Role) {
+    setActiveTab(role);
+    setEntered(true);
+  }
+
+  function handleLogout() {
+    airlineWallet.disconnect();
+    passengerWallet.disconnect();
+    setEntered(false);
+  }
+
+  function handleSwitchAccount() {
+    activeWallet.connectMetaMask(true);
+  }
+
+  if (!entered) {
+    return (
+      <LoginScreen
+        contractAddress={contractAddress}
+        onContractChange={setContractAddress}
+        wallets={wallets}
+        onEnter={handleEnter}
+      />
+    );
+  }
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>AcordoInstant</h1>
-        <p>Seguro paramétrico para atrasos de voos</p>
-      </header>
-
-      <nav className="app-nav">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      <TopBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        contractAddress={contractAddress}
+        hasValidContract={hasValidContract}
+        onContractChange={setContractAddress}
+        walletAddress={activeWallet.address}
+        onLogout={handleLogout}
+        onSwitchAccount={handleSwitchAccount}
+      />
 
       <main className="app-main">
-        {activeTab === 'wallet' && (
-          <WalletPanel
-            signer={signer}
-            walletAddress={walletAddress}
-            contractAddress={contractAddress}
-            setContractAddress={setContractAddress}
-            setSigner={setSigner}
-            setWalletAddress={setWalletAddress}
+        {!hasValidContract ? (
+          <ContractGate value={contractAddress} onSubmit={setContractAddress} />
+        ) : !hasValidWallet ? (
+          <RoleConnectGate
+            role={activeTab}
+            connecting={activeWallet.connecting}
+            error={activeWallet.error}
+            onSubmit={(address) => activeWallet.setAddress(address)}
+            onConnectMetaMask={() => activeWallet.connectMetaMask()}
           />
-        )}
-        {activeTab === 'airline' && (
+        ) : activeTab === 'airline' ? (
           <AirlinePanel
-            signer={signer}
-            walletAddress={walletAddress}
+            signer={airlineWallet.signer}
+            walletAddress={airlineWallet.address}
             contractAddress={contractAddress}
           />
-        )}
-        {activeTab === 'passenger' && (
-          <PassengerPanel contractAddress={contractAddress} />
-        )}
-        {activeTab === 'oracle' && (
-          <OraclePanel signer={signer} contractAddress={contractAddress} />
+        ) : (
+          <PassengerPanel
+            signer={passengerWallet.signer}
+            walletAddress={passengerWallet.address}
+            contractAddress={contractAddress}
+          />
         )}
       </main>
-
-      <footer className="app-footer">
-        <p>Protótipo de laboratório — execute o contrato via Remix e conecte a MetaMask.</p>
-      </footer>
     </div>
   );
 }

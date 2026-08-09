@@ -1,0 +1,96 @@
+.role-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem;
+  min-height: calc(100vh - 68px);
+}
+
+.role-gate-card {
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 2.25rem 2rem;
+}
+
+.role-gate-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  margin: 0.5rem 0 0.6rem;
+}
+
+.role-gate-text {
+  color: var(--color-ink-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.role-gate-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  text-align: left;
+}
+
+.role-gate-form input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  outline: none;
+  text-align: left;
+}
+
+.role-gate-form input:focus {
+  border-color: var(--color-navy);
+  box-shadow: 0 0 0 3px var(--color-navy-soft);
+}
+
+.role-gate-form input.invalid {
+  border-color: var(--color-danger);
+}
+
+.role-gate-form .btn {
+  align-self: center;
+  min-width: 200px;
+  margin-top: 0.3rem;
+}
+
+.role-gate-secondary {
+  display: block;
+  margin: 1rem auto 0;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-teal-dark);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.role-gate-secondary:hover {
+  color: var(--color-navy);
+}
+
+.role-gate-secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.role-gate-error {
+  margin-top: 0.9rem;
+  color: var(--color-danger);
+  font-size: 0.85rem;
+}

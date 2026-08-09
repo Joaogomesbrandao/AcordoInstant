@@ -27,13 +27,13 @@ flowchart TB
 
     subgraph ON["On-chain (blockchain)"]
         direction LR
-        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · registrarAtraso<br/>calcularMulta · resgatarFundo · consultas")
+        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · inscreverNoVoo<br/>registrarAtraso · calcularMulta · resgatarFundo · consultas")
     end
 
     Passageiro1 --> Frontend
     Companhia --> Frontend
     Companhia -->|depositarFundo, cadastrarVoo| Seguro
-    Passageiro1 -->|registrarAtraso| Seguro
+    Passageiro1 -->|inscreverNoVoo, registrarAtraso| Seguro
     Seguro -->|PagamentoRealizado + QuitacaoEmitida| Passageiro2
 
     classDef offchain fill:#e6e6fa,stroke:#8a7fc4,color:#3d3466;
@@ -46,9 +46,9 @@ flowchart TB
 ```
 
 As chamadas apontadas diretamente para `SeguroParametrico.sol`
-(`depositarFundo`, `cadastrarVoo` e `registrarAtraso`) representam transações
-assinadas pela carteira conectada do próprio ator — a companhia ou o
-passageiro — nunca pelo backend ou pelo Oracle.
+(`depositarFundo`, `cadastrarVoo`, `inscreverNoVoo` e `registrarAtraso`)
+representam transações assinadas pela carteira conectada do próprio ator — a
+companhia ou o passageiro — nunca pelo backend ou pelo Oracle.
 
 ## Observação sobre a posição do Oracle no diagrama
 
@@ -59,7 +59,8 @@ contract e não possui privilégios especiais no `SeguroParametrico.sol`: não
 tem endereço cadastrado no contrato, não passa por nenhum modifier de acesso
 e não assina nenhuma transação. As transações on-chain são executadas pelas
 próprias carteiras das partes envolvidas — a companhia chama
-`cadastrarVoo`/`depositarFundo`, e o passageiro chama `registrarAtraso`.
+`cadastrarVoo`/`depositarFundo`, e o passageiro chama `inscreverNoVoo` e
+`registrarAtraso`.
 
 ## Observação sobre o frontend da companhia aérea
 
@@ -83,17 +84,18 @@ ordem — está no diagrama de sequência, em
 
 Ficam on-chain:
 
-- identificador numérico do voo;
-- endereço da companhia;
-- endereço do passageiro;
-- atraso em horas registrado pelo passageiro;
+- identificador numérico do voo, horário de partida e horário de chegada;
+- endereço da companhia e endereços dos passageiros inscritos no voo;
+- atraso informado (livre, sem efeito no pagamento) e atraso oficial
+  (usado no cálculo) registrados por cada passageiro;
 - saldo de garantia de cada companhia;
-- indicação de pagamento;
-- eventos de depósito, cadastro, atraso, pagamento e quitação.
+- indicação de pagamento por passageiro;
+- eventos de depósito, cadastro, inscrição, atraso, pagamento e quitação.
 
 Ficam off-chain:
 
-- horários, origem, destino e demais informações operacionais do voo;
+- origem, destino e demais informações operacionais do voo (além do horário,
+  que é on-chain);
 - dados pessoais e documentos do passageiro;
 - backend (`backend/server.js`), responsável só pela orquestração da API;
 - frontend, com a interface e as regras de apresentação;
@@ -116,8 +118,12 @@ auditoria, reduzindo custo e evitando a exposição de dados pessoais.
   função restrita a ele e não assina transações.
 - **Cada ator assina a própria transação:** a companhia chama
   `depositarFundo` e `cadastrarVoo` com a própria carteira; o passageiro
-  chama `registrarAtraso` com a própria carteira. Nem o backend nem o Oracle
-  executam transações em nome de outros atores.
+  chama `inscreverNoVoo` e `registrarAtraso` com a própria carteira. Nem o
+  backend nem o Oracle executam transações em nome de outros atores.
+- **Voo com múltiplos passageiros:** como a companhia não vincula mais um
+  passageiro específico ao cadastrar o voo, cada voo pode ter vários
+  passageiros inscritos; cada um só recebe indenização quando ele próprio
+  chama `registrarAtraso`, de forma independente dos demais inscritos.
 
 Este diagrama é uma versão preliminar. Durante próximas entregas iremos
 incorporar o frontend, testes, evidências de implantação e as
