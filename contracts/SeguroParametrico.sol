@@ -4,14 +4,18 @@ pragma solidity ^0.8.24;
 /**
  * @title SeguroParametrico
  * @notice Protótipo de seguro para atrasos de voos.
- * @dev O oráculo é um serviço off-chain autorizado, não outro smart contract.
- *      Os valores são denominados na moeda nativa da rede (ETH em redes Ethereum).
+ * @dev O Oracle (oracle/oracle.js) é um serviço off-chain de consulta/integração:
+ *      ele apenas busca o atraso oficial junto à fonte de dados e o repassa ao
+ *      restante do sistema, sem privilégios especiais neste contrato e sem
+ *      assinar transações em nome de terceiros. As chamadas on-chain são feitas
+ *      diretamente pelas carteiras dos próprios atores responsáveis: a
+ *      companhia aérea assina `cadastrarVoo` e o passageiro assina
+ *      `registrarAtraso`. Os valores são denominados na moeda nativa da rede
+ *      (ETH em redes Ethereum).
  */
 contract SeguroParametrico {
     uint256 public constant LIMIAR_ATRASO_HORAS = 2;
     uint256 public constant VALOR_MULTA = 0.01 ether;
-
-    address public immutable oraculo;
 
     mapping(address => uint256) private fundosEmpresas;
     mapping(uint256 => Voo) private voos;
@@ -45,15 +49,7 @@ contract SeguroParametrico {
     );
     event FundoResgatado(address indexed empresa, uint256 valor, uint256 saldoRestante);
 
-    modifier apenasOraculo() {
-        require(msg.sender == oraculo, "Somente o oraculo");
-        _;
-    }
-
-    constructor(address enderecoOraculo) {
-        require(enderecoOraculo != address(0), "Oraculo invalido");
-        oraculo = enderecoOraculo;
-    }
+    constructor() {}
 
     /**
      * @notice Deposita o fundo que garante os pagamentos da companhia.
@@ -67,13 +63,17 @@ contract SeguroParametrico {
     }
 
     /**
-     * @notice Vincula o identificador do voo a uma companhia e a um passageiro.
+     * @notice Vincula o identificador do voo à companhia que chama a função e
+     *         ao passageiro informado.
+     * @dev A companhia aérea deve chamar esta função usando sua própria
+     *      carteira; `empresa` é sempre `msg.sender`, nunca um parâmetro.
      */
     function cadastrarVoo(
         uint256 vooId,
-        address empresa,
         address passageiro
-    ) external apenasOraculo {
+    ) external {
+        address empresa = msg.sender;
+
         require(voos[vooId].empresa == address(0), "Voo ja cadastrado");
         require(empresa != address(0), "Empresa invalida");
         require(passageiro != address(0), "Passageiro invalido");
@@ -91,6 +91,9 @@ contract SeguroParametrico {
 
     /**
      * @notice Registra o atraso e tenta quitar automaticamente a indenização.
+     * @dev Chamada pelo próprio passageiro vinculado ao voo, usando o atraso
+     *      oficial que o Oracle consultou e repassou off-chain (o passageiro
+     *      confirma essa informação antes de assinar a transação).
      * @return pagamentoEfetuado Indica se houve transferência ao passageiro.
      * @return mensagem Resultado legível para o backend/interface.
      */
@@ -99,11 +102,14 @@ contract SeguroParametrico {
         uint256 atrasoHoras
     )
         external
-        apenasOraculo
         returns (bool pagamentoEfetuado, string memory mensagem)
     {
         Voo storage voo = voos[vooId];
         require(voo.empresa != address(0), "Voo nao cadastrado");
+        require(
+            msg.sender == voo.passageiro,
+            "Somente passageiro pode registrar atraso"
+        );
         require(!voo.pago, "Voo ja pago");
 
         voo.atrasoHoras = atrasoHoras;
