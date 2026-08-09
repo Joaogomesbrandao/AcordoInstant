@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "nextIds": {
+      "company": 1,
+      "passenger": 1,
+      "policy": 1
+    }
+  },
+  "companies": {},
+  "passengers": {},
+  "policies": {},
+  "flightStatusByCode": {},
+  "processingLogs": []
+}
+
