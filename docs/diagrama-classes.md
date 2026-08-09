@@ -43,7 +43,7 @@ classDiagram
 
     SeguroParametrico "1" *-- "0..*" Voo : armazena em voos
 
-    note for SeguroParametrico "As funções `cadastrarVoo` e `registrarAtraso` são chamadas pelas carteiras responsáveis (companhia e passageiro, respectivamente); não existe mais um modifier que restrinja a execução ao endereço do oracle."
+    note for SeguroParametrico "cadastrarVoo usa msg.sender como empresa; registrarAtraso exige que msg.sender seja o passageiro associado ao voo. O Oracle nao faz parte da estrutura interna do contrato, pois e um componente off-chain sem privilegios aqui."
 ```
 
 `$` marca `LIMIAR_ATRASO_HORAS` e `VALOR_MULTA` como membros `constant`, ou
@@ -82,7 +82,8 @@ do diagrama porque o protótipo tem um único contrato.
 ## Eventos
 
 - `FundoDepositado`: comprova a entrada de garantia da companhia.
-- `AtrasoRegistrado`: registra o atraso reportado pelo passageiro (evento de domínio).
+- `AtrasoRegistrado`: registra o atraso informado pelo passageiro na
+  transação on-chain.
 - `PagamentoRealizado`: registra a transferência ao passageiro.
 - `QuitacaoEmitida`: produz a evidência auditável da quitação.
 - `VooCadastrado` e `FundoResgatado`: dão transparência às operações
