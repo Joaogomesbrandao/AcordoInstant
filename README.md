@@ -41,13 +41,22 @@ abaixo, no Remix, cobre apenas a parte on-chain desse fluxo (as transações
 assinadas pela companhia e pelo passageiro); a consulta do atraso oficial
 pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
 
-### Rodando backend + Oracle junto com o frontend
+### Rodando o sistema integrado
 
-1. Na raiz do projeto: `npm install` e depois `npm start` (sobe o backend em
-   `http://127.0.0.1:3001` — a porta 3000 já é do frontend em desenvolvimento).
-2. Semeie o atraso oficial de um voo usando o Oracle:
+1. Na raiz do projeto, instale as dependências do backend:
+   `npm install`
+2. Instale as dependências do frontend:
+   `npm --prefix frontend install`
+3. Para desenvolvimento full stack, rode `npm run dev`.
+   O frontend sobe em `http://127.0.0.1:3000` e o backend em
+   `http://127.0.0.1:3001`, com proxy do Vite para as rotas `/api`, `/voos`
+   e `/health`.
+4. Para subir tudo em uma única aplicação, gere a build com `npm run build`
+   e depois execute `npm start`. Nesse modo, o backend também serve o
+   `frontend/dist` em `http://127.0.0.1:3001`.
+5. Semeie o atraso oficial de um voo usando o Oracle:
    `node oracle/oracle.js --flight 1234 --delay 240` (delay em minutos; 240 = 4h).
-3. No painel do passageiro (passo 3 da seção **Como usar a interface**,
+6. No painel do passageiro (passo 3 da seção **Como usar a interface**,
    abaixo), o botão "Buscar atraso oficial" chama
    `POST /voos/:vooId/consultar` no backend, que devolve o `atrasoHorasOficial`
    já semeado. Se o backend rodar em outro host/porta, aponte o frontend para
@@ -86,7 +95,7 @@ ETH é usado apenas como unidade de demonstração.
 
 O projeto possui uma interface web local em `frontend/` para interagir com o contrato de forma visual.
 
-### Executar o frontend
+### Executar só o frontend
 
 1. Abra um terminal na pasta `frontend`:
    ```bash
@@ -101,6 +110,10 @@ O projeto possui uma interface web local em `frontend/` para interagir com o con
    npm run dev
    ```
 4. Acesse no navegador: **http://localhost:3000/**
+
+Se o backend estiver rodando na configuração padrão (`http://127.0.0.1:3001`),
+o Vite já encaminha automaticamente as chamadas de API. `VITE_API_URL` só é
+necessário quando a API estiver em outro host ou porta.
 
 ### Como usar a interface
 
@@ -142,5 +155,4 @@ das decisões técnicas. O processo foi:
    alguma decisão gerada não refletia exatamente o que o grupo pretendia;
 4. modelos diferentes de IA foram utilizados para a produção guiada e compreensão
    do código do contrato em Solidity.
-
 

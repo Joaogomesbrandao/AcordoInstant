@@ -4,15 +4,19 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "node backend/server.js",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
     "start": "node backend/server.js",
     "check:contract": "node scripts/check-contract.js",
     "smoke:api": "node scripts/smoke-api.js"
   },
   "dependencies": {
+    "concurrently": "^9.2.1",
     "dotenv": "^17.2.2",
     "ethers": "^6.15.0",
     "express": "^5.1.0",
     "solc": "^0.8.30"
   }
 }
-

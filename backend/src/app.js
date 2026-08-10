@@ -13,9 +13,10 @@ function asyncHandler(handler) {
 export function createApp({ service, blockchainService, config }) {
   const app = express();
 
-  // Frontend (Vite, porta 3000) e backend (porta 3001) rodam em origens
-  // diferentes; sem isso o navegador bloqueia a chamada do painel do
-  // passageiro em /voos/:vooId/consultar.
+  // Em desenvolvimento, o frontend costuma rodar no Vite (porta 3000) e o
+  // backend na 3001. Em produção/local build, o backend também pode servir o
+  // `frontend/dist`, então o CORS continua aqui apenas para manter ambos os
+  // modos funcionando sem configuração extra.
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -172,6 +173,29 @@ export function createApp({ service, blockchainService, config }) {
     }
   );
 
+  if (config.serveFrontend) {
+    app.use(express.static(config.frontendDistDir));
+    app.use((req, res, next) => {
+      if (req.method !== "GET") {
+        next();
+        return;
+      }
+
+      if (
+        req.path === "/health" ||
+        req.path === "/api" ||
+        req.path.startsWith("/api/") ||
+        req.path === "/voos" ||
+        req.path.startsWith("/voos/")
+      ) {
+        next();
+        return;
+      }
+
+      res.sendFile(config.frontendIndexFile);
+    });
+  }
+
   app.use((req, res) => {
     res.status(404).json({
       error: `Rota nao encontrada: ${req.method} ${req.originalUrl}`
@@ -187,4 +211,3 @@ export function createApp({ service, blockchainService, config }) {
 
   return app;
 }
-

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { existsSync } from "node:fs";
 import dotenv from "dotenv";
 import { createApp } from "./app.js";
 import { JsonStore } from "./store/jsonStore.js";
@@ -10,6 +11,11 @@ dotenv.config();
 
 function normalizeConfig(overrides = {}) {
   const rootDir = process.cwd();
+  const frontendDistDir =
+    overrides.frontendDistDir ??
+    process.env.FRONTEND_DIST_DIR ??
+    path.join(rootDir, "frontend", "dist");
+  const frontendIndexFile = path.join(frontendDistDir, "index.html");
 
   return {
     host: overrides.host ?? process.env.HOST ?? "127.0.0.1",
@@ -24,7 +30,14 @@ function normalizeConfig(overrides = {}) {
     rpcUrl: overrides.rpcUrl ?? process.env.RPC_URL ?? "",
     chainId: overrides.chainId ?? (process.env.CHAIN_ID ? Number(process.env.CHAIN_ID) : null),
     operatorPrivateKey:
-      overrides.operatorPrivateKey ?? process.env.OPERATOR_PRIVATE_KEY ?? ""
+      overrides.operatorPrivateKey ?? process.env.OPERATOR_PRIVATE_KEY ?? "",
+    frontendDistDir,
+    frontendIndexFile,
+    serveFrontend:
+      overrides.serveFrontend ??
+      (process.env.SERVE_FRONTEND
+        ? process.env.SERVE_FRONTEND === "true"
+        : existsSync(frontendIndexFile))
   };
 }
 
@@ -48,4 +61,3 @@ export function createSystem(overrides = {}) {
     config
   };
 }
-
