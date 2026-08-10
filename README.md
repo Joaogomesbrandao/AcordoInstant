@@ -41,6 +41,18 @@ abaixo, no Remix, cobre apenas a parte on-chain desse fluxo (as transações
 assinadas pela companhia e pelo passageiro); a consulta do atraso oficial
 pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
 
+### Rodando backend + Oracle junto com o frontend
+
+1. Na raiz do projeto: `npm install` e depois `npm start` (sobe o backend em
+   `http://127.0.0.1:3001` — a porta 3000 já é do frontend em desenvolvimento).
+2. Semeie o atraso oficial de um voo usando o Oracle:
+   `node oracle/oracle.js --flight 1234 --delay 240` (delay em minutos; 240 = 4h).
+3. No painel do passageiro (passo 3 da seção **Como usar a interface**,
+   abaixo), o botão "Buscar atraso oficial" chama
+   `POST /voos/:vooId/consultar` no backend, que devolve o `atrasoHorasOficial`
+   já semeado. Se o backend rodar em outro host/porta, aponte o frontend para
+   ele com `VITE_API_URL`.
+
 ## Demonstração no Remix
 
 1. Acesse [remix.ethereum.org](https://remix.ethereum.org), crie um arquivo `SeguroParametrico.sol` e cole o código do contrato.

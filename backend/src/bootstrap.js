@@ -13,7 +13,8 @@ function normalizeConfig(overrides = {}) {
 
   return {
     host: overrides.host ?? process.env.HOST ?? "127.0.0.1",
-    port: Number(overrides.port ?? process.env.PORT ?? 3000),
+    // 3001 por padrao: o frontend (Vite) ja ocupa a porta 3000.
+    port: Number(overrides.port ?? process.env.PORT ?? 3001),
     providerMode: overrides.providerMode ?? process.env.PROVIDER_MODE ?? "manual",
     dataFile:
       overrides.dataFile ??

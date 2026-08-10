@@ -26,7 +26,7 @@ interface MyFlight {
   pago: boolean;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Espelha a regra fixa do contrato (LIMIAR_ATRASO_HORAS / VALOR_MULTA) só para
 // exibir uma estimativa no histórico, sem precisar de uma chamada extra por voo.

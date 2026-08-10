@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = "http://127.0.0.1:3000";
+const DEFAULT_BASE_URL = "http://127.0.0.1:3001";
 
 function getArg(flag, fallback = null) {
   const index = process.argv.indexOf(flag);

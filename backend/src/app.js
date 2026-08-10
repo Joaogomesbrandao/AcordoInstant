@@ -13,6 +13,22 @@ function asyncHandler(handler) {
 export function createApp({ service, blockchainService, config }) {
   const app = express();
 
+  // Frontend (Vite, porta 3000) e backend (porta 3001) rodam em origens
+  // diferentes; sem isso o navegador bloqueia a chamada do painel do
+  // passageiro em /voos/:vooId/consultar.
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+      res.sendStatus(204);
+      return;
+    }
+
+    next();
+  });
+
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
@@ -136,6 +152,24 @@ export function createApp({ service, blockchainService, config }) {
     asyncHandler(async (req, res) => {
       res.json(await blockchainService.depositEscrow(req.body ?? {}));
     })
+  );
+
+  // Consultada pelo painel do passageiro (frontend) antes de assinar
+  // registrarAtraso no contrato. O formato de erro ({ erro }) segue o que o
+  // frontend ja espera nessa chamada especifica; as demais rotas continuam
+  // usando { error }, sem alterar o contrato existente da API.
+  app.post(
+    "/voos/:vooId/consultar",
+    async (req, res) => {
+      try {
+        const { passageiro } = req.body ?? {};
+        const resultado = await service.consultarAtrasoOficialVoo(req.params.vooId, passageiro);
+        res.json(resultado);
+      } catch (error) {
+        const statusCode = error.statusCode ?? 500;
+        res.status(statusCode).json({ erro: error.message ?? "Erro interno" });
+      }
+    }
   );
 
   app.use((req, res) => {

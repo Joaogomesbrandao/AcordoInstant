@@ -452,5 +452,24 @@ export class AcordoInstantService {
   async getFlightStatus(flightNumber) {
     return this.flightStatusProvider.getStatus(flightNumber);
   }
+
+  // Ponte usada pelo painel do passageiro (frontend) antes de assinar
+  // registrarAtraso: reaproveita o mesmo ManualFlightStatusProvider/Oracle
+  // que ja alimenta getFlightStatus, so traduzindo vooId (numero do voo do
+  // contrato) e horas (atrasoHorasOficial) para a terminologia existente
+  // (flightNumber em minutos).
+  async consultarAtrasoOficialVoo(vooId, passageiroAddress) {
+    ensureAddress(passageiroAddress, "passageiro");
+    const flightNumber = ensureString(vooId, "vooId").toUpperCase();
+    const status = await this.flightStatusProvider.getStatus(flightNumber);
+
+    return {
+      vooId: flightNumber,
+      atrasoHorasOficial: Math.floor(Number(status.delayMinutes) / 60),
+      statusOficial: status.status,
+      proofHash: status.proofHash,
+      reportadoEm: status.reportedAt
+    };
+  }
 }
 
