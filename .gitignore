@@ -4,3 +4,5 @@ artifacts/
 cache/
 coverage/
 dist/
+data/store.local.json
+data/store.smoke.json
