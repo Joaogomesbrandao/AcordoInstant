@@ -48,6 +48,11 @@ contract SeguroParametrico {
         uint256 horarioChegada
     );
     event PassageiroInscrito(uint256 indexed vooId, address indexed passageiro);
+    event PassageiroInscritoPelaEmpresa(
+        uint256 indexed vooId,
+        address indexed empresa,
+        address indexed passageiro
+    );
     event AtrasoRegistrado(
         uint256 indexed vooId,
         address indexed passageiro,
@@ -116,11 +121,35 @@ contract SeguroParametrico {
      * @notice O próprio passageiro se inscreve em um voo já cadastrado.
      */
     function inscreverNoVoo(uint256 vooId) external {
+        _inscrever(vooId, msg.sender);
+        emit PassageiroInscrito(vooId, msg.sender);
+    }
+
+    /**
+     * @notice A companhia do voo inscreve um passageiro em seu nome,
+     *         informando o endereço dele diretamente.
+     * @dev Usado quando o passageiro não assina transações por conta
+     *      própria (ex.: cadastro feito pela companhia a partir do nome do
+     *      passageiro na interface). Só a companhia dona do voo pode chamar
+     *      esta função; `inscreverNoVoo` continua disponível para o
+     *      passageiro se inscrever por conta própria.
+     */
+    function inscreverPassageiroPelaEmpresa(uint256 vooId, address passageiro) external {
         Voo storage voo = voos[vooId];
         require(voo.empresa != address(0), "Voo nao cadastrado");
-        require(!inscricoes[vooId][msg.sender].inscrito, "Passageiro ja inscrito neste voo");
+        require(msg.sender == voo.empresa, "Somente a companhia do voo pode inscrever passageiros");
 
-        inscricoes[vooId][msg.sender] = Inscricao({
+        _inscrever(vooId, passageiro);
+        emit PassageiroInscritoPelaEmpresa(vooId, msg.sender, passageiro);
+    }
+
+    function _inscrever(uint256 vooId, address passageiro) private {
+        Voo storage voo = voos[vooId];
+        require(voo.empresa != address(0), "Voo nao cadastrado");
+        require(passageiro != address(0), "Passageiro invalido");
+        require(!inscricoes[vooId][passageiro].inscrito, "Passageiro ja inscrito neste voo");
+
+        inscricoes[vooId][passageiro] = Inscricao({
             inscrito: true,
             atrasoHorasInformado: 0,
             atrasoHorasOficial: 0,
@@ -128,9 +157,7 @@ contract SeguroParametrico {
         });
 
         voo.totalPassageiros += 1;
-        voosPorPassageiro[msg.sender].push(vooId);
-
-        emit PassageiroInscrito(vooId, msg.sender);
+        voosPorPassageiro[passageiro].push(vooId);
     }
 
     /**

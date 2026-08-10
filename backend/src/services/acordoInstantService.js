@@ -106,6 +106,17 @@ export class AcordoInstantService {
     return sortById(state.passengers);
   }
 
+  async getPassenger(passengerId) {
+    const state = await this.store.getState();
+    const passenger = state.passengers[Number(passengerId)];
+
+    if (!passenger) {
+      throw httpError("Passageiro nao encontrado", 404);
+    }
+
+    return passenger;
+  }
+
   async createPassenger(input) {
     const name = ensureString(input.name, "name");
     const walletAddress = ensureAddress(input.walletAddress, "walletAddress");

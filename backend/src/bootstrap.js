@@ -5,6 +5,7 @@ import { createApp } from "./app.js";
 import { JsonStore } from "./store/jsonStore.js";
 import { ManualFlightStatusProvider } from "./services/manualFlightStatusProvider.js";
 import { BlockchainService } from "./services/blockchainService.js";
+import { FlightContractService } from "./services/flightContractService.js";
 import { AcordoInstantService } from "./services/acordoInstantService.js";
 
 dotenv.config();
@@ -46,6 +47,7 @@ export function createSystem(overrides = {}) {
   const store = new JsonStore(config.dataFile);
   const flightStatusProvider = new ManualFlightStatusProvider(store);
   const blockchainService = new BlockchainService(config);
+  const flightContractService = new FlightContractService(config);
   const service = new AcordoInstantService({
     store,
     flightStatusProvider,
@@ -53,11 +55,12 @@ export function createSystem(overrides = {}) {
   });
 
   return {
-    app: createApp({ service, blockchainService, config }),
+    app: createApp({ service, blockchainService, flightContractService, config }),
     service,
     store,
     flightStatusProvider,
     blockchainService,
+    flightContractService,
     config
   };
 }

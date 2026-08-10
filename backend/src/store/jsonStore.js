@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const DEFAULT_STATE = {
+export const DEFAULT_STATE = {
   meta: {
     nextIds: {
       company: 1,
@@ -68,7 +68,7 @@ export class JsonStore {
   }
 
   async update(mutator) {
-    this.queue = this.queue.then(async () => {
+    const result = this.queue.then(async () => {
       const state = await this.readState();
       const draft = clone(state);
       const nextState = (await mutator(draft)) ?? draft;
@@ -76,7 +76,13 @@ export class JsonStore {
       return clone(nextState);
     });
 
-    return this.queue;
+    // Sem o .catch aqui, uma unica chamada que rejeita (ex.: endereco
+    // duplicado) deixa this.queue permanentemente rejeitada, e TODA
+    // atualizacao futura passaria a falhar de imediato com esse mesmo erro
+    // antigo, independente do que for enviado depois.
+    this.queue = result.catch(() => undefined);
+
+    return result;
   }
 }
 

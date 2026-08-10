@@ -2,14 +2,19 @@
   "meta": {
     "nextIds": {
       "company": 1,
-      "passenger": 1,
+      "passenger": 2,
       "policy": 1
     }
   },
   "companies": {},
-  "passengers": {},
+  "passengers": {
+    "1": {
+      "id": 1,
+      "name": "S",
+      "walletAddress": "0x4567834525462834724758372487653278734658"
+    }
+  },
   "policies": {},
   "flightStatusByCode": {},
   "processingLogs": []
 }
-

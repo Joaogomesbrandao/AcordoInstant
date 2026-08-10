@@ -1,20 +1,23 @@
 # AcordoInstant
 
 Protótipo de seguro paramétrico para atraso de voos: a companhia deposita um
-fundo de garantia no contrato e cadastra o voo (número e horários de partida
-e chegada) com sua própria carteira; qualquer passageiro se inscreve nesse
-voo por conta própria. Quando há atraso, o passageiro confere o valor oficial
-(consultado pelo Oracle) e, ao confirmar, registra esse atraso no contrato
-com sua própria carteira. O contrato calcula a indenização e paga o
-passageiro automaticamente quando as condições são satisfeitas, emitindo o
+fundo de garantia no contrato, cadastra o voo (número e horários de partida
+e chegada) e inscreve os passageiros nele pelo nome, tudo com sua própria
+carteira (o próprio passageiro também pode se inscrever por conta própria
+com `inscreverNoVoo`, se preferir). Quando há atraso, o passageiro confere o
+valor oficial (consultado pelo Oracle) e, ao confirmar, registra esse atraso
+no contrato com sua própria carteira. O contrato calcula a indenização e paga
+o passageiro automaticamente quando as condições são satisfeitas, emitindo o
 evento de quitação.
 
 ## Conteúdo
 
 - `contracts/SeguroParametrico.sol`: único smart contract do projeto.
-  Funções centrais: `cadastrarVoo` (chamada pela companhia), `inscreverNoVoo`
-  e `registrarAtraso` (chamadas pelo passageiro), que calcula a multa e paga
-  o passageiro se houver saldo, com `depositarFundo` como função de apoio ao
+  Funções centrais: `cadastrarVoo` e `inscreverPassageiroPelaEmpresa` (chamadas
+  pela companhia, essa última inscreve um passageiro pelo endereço dele),
+  `inscreverNoVoo` (autoinscrição, chamada pelo próprio passageiro) e
+  `registrarAtraso` (chamada pelo passageiro), que calcula a multa e paga o
+  passageiro se houver saldo, com `depositarFundo` como função de apoio ao
   fluxo.
 - `oracle/oracle.js`: componente off-chain de consulta/integração — busca o
   atraso oficial na fonte de dados do voo e o repassa ao backend. Não possui
@@ -47,20 +50,35 @@ pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
    `npm install`
 2. Instale as dependências do frontend:
    `npm --prefix frontend install`
-3. Para desenvolvimento full stack, rode `npm run dev`.
-   O frontend sobe em `http://127.0.0.1:3000` e o backend em
-   `http://127.0.0.1:3001`, com proxy do Vite para as rotas `/api`, `/voos`
-   e `/health`.
-4. Para subir tudo em uma única aplicação, gere a build com `npm run build`
-   e depois execute `npm start`. Nesse modo, o backend também serve o
-   `frontend/dist` em `http://127.0.0.1:3001`.
-5. Semeie o atraso oficial de um voo usando o Oracle:
+3. **Para rodar o projeto completo em desenvolvimento (o jeito recomendado),
+   use `npm run dev` na raiz.** Esse comando sobe as duas partes juntas:
+   - backend em `http://127.0.0.1:3001`;
+   - frontend (Vite, com hot reload) em `http://localhost:3000` — é essa a
+     URL que você deve abrir no navegador.
+
+   O Vite já encaminha automaticamente as chamadas de `/api`, `/voos`,
+   `/companhia` e `/health` para o backend, então não é preciso configurar
+   CORS nem `VITE_API_URL` nesse modo.
+
+   `npm start` **sozinho só sobe o backend** (`node backend/server.js`), sem
+   o Vite — use-o apenas junto com o passo 4 abaixo, para o modo de
+   aplicação única.
+4. Alternativa: para servir tudo a partir de um único processo (sem hot
+   reload, mais parecido com produção), gere a build com `npm run build` e
+   depois execute `npm start`. Nesse modo o backend também serve o
+   `frontend/dist` já compilado, tudo em `http://127.0.0.1:3001`.
+5. **O banco de dados (`data/store.json`) é zerado automaticamente toda vez**
+   que você roda `npm run dev` ou `npm start` (hooks `predev`/`prestart`
+   chamam `scripts/reset-db.js`), então cada execução começa sem nenhuma
+   companhia, passageiro ou apólice cadastrados. Para zerar manualmente sem
+   reiniciar nada, rode `npm run reset:db`.
+6. Semeie o atraso oficial de um voo usando o Oracle:
    `node oracle/oracle.js --flight 1234 --delay 240` (delay em minutos; 240 = 4h).
-6. No painel do passageiro (passo 3 da seção **Como usar a interface**,
+7. No painel do passageiro (passo 5 da seção **Como usar a interface**,
    abaixo), o botão "Buscar atraso oficial" chama
    `POST /voos/:vooId/consultar` no backend, que devolve o `atrasoHorasOficial`
    já semeado. Se o backend rodar em outro host/porta, aponte o frontend para
-   ele com `VITE_API_URL`.
+   ele com `VITE_API_URL` (só necessário fora do modo `npm run dev`).
 
 ## Demonstração no Remix
 
@@ -72,7 +90,7 @@ pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
 4. O construtor não recebe argumentos: com qualquer conta selecionada, clique em **Deploy**.
 5. **Depósito do escrow:** com a **Conta 1** (Companhia) selecionada, coloque `1` no campo **Value** (unidade `Ether`) e chame `depositarFundo`.
 6. **Cadastro do voo:** ainda com a **Conta 1**, coloque **Value = 0** (importante!) e chame `cadastrarVoo(vooId, horarioPartida, horarioChegada)` — os horários são timestamps Unix (segundos) e o contrato usa `msg.sender` (a Conta 1) como endereço da empresa automaticamente.
-7. **Inscrição do passageiro:** troque para a **Conta 2** (Passageiro). Com **Value = 0**, chame `inscreverNoVoo(vooId)` para se vincular ao voo cadastrado.
+7. **Inscrição do passageiro:** troque para a **Conta 2** (Passageiro). Com **Value = 0**, chame `inscreverNoVoo(vooId)` para se vincular ao voo cadastrado. Alternativa: a própria companhia (**Conta 1**) pode inscrever o passageiro em seu lugar chamando `inscreverPassageiroPelaEmpresa(vooId, enderecoDaConta2)` — é o que a interface web faz, já que o passageiro não assina transações por lá.
 8. **Registro do atraso e pagamento automático:** ainda com a **Conta 2**, chame `registrarAtraso(vooId, atrasoHorasInformado, atrasoHorasOficial)` — use um valor de `atrasoHorasOficial` `> 2` para disparar o pagamento (`atrasoHorasInformado` é livre, fica apenas registrado). Confira no console os eventos `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`.
 9. **Conferir o estado:**
    - `consultarSaldo(enderecoDaCompanhia)` → saldo do escrow da companhia, em wei (ex: `980000000000000000` = `0,98 ETH`).
@@ -117,24 +135,58 @@ necessário quando a API estiver em outro host ou porta.
 
 ### Como usar a interface
 
-1. **Deploy do contrato:** siga os passos da seção **Demonstração no Remix** para compilar e publicar o contrato. Anote o endereço do contrato.
-2. **Login:** na tela inicial, escolha um perfil (**Companhia aérea** ou **Passageiro**). Abaixo aparecem os dois campos necessários para entrar: o **endereço do contrato** implantado (ex: copiado do Remix) e o **endereço da carteira** desse perfil (ex: uma das contas do Remix). Não é preciso ter a MetaMask instalada — basta digitar os dois endereços e clicar em **Entrar**. Quem tiver a extensão pode, opcionalmente, usar o link "preencher com a MetaMask automaticamente" para preencher o campo da carteira com uma conta real e poder assinar transações de verdade.
-3. **Navegação:** depois de logado, o topo mostra as abas **Companhia** e **Passageiro** ao lado do nome do app. Cada aba usa seu próprio endereço — ao clicar na aba que ainda não tem um endereço definido (por exemplo, trocar de Companhia para Passageiro), a interface pede para informar o endereço desse outro perfil antes de mostrar o painel.
-4. **Painel da companhia:** depositar/resgatar o fundo de garantia, cadastrar voos (número + horários de partida e chegada) e ver a lista de voos já cadastrados.
-5. **Painel do passageiro:** inscrever-se em um voo pelo número, ver os voos em que já está inscrito e, para os que tiverem atraso, buscar o valor oficial junto ao Oracle e confirmar o registro que dispara o pagamento automático.
-6. **Trocar de conta ou sair:** o botão **Trocar de conta**, no canto superior direito, reabre o seletor de contas da MetaMask para a aba ativa (só funciona com a extensão instalada); **Sair** encerra a sessão por completo, voltando à tela de login.
-7. **Assinar transações de verdade:** como os endereços podem ser só digitados, ações que gravam algo no contrato (depositar, cadastrar voo, inscrever-se, registrar atraso) só funcionam quando o endereço do perfil ativo estiver de fato conectado via MetaMask — a interface avisa quando isso não é o caso. Sem a extensão, dá para navegar e explorar toda a interface, mas quem assina as transações de verdade é o Remix (veja a seção **Demonstração no Remix**).
+Não é preciso ter a MetaMask ou qualquer extensão instalada. A companhia
+aérea é única, fixa e configurada automaticamente pelo backend (a chave dela
+fica só no servidor); o passageiro só precisa de um nome e de um endereço de
+carteira (pode ser só digitado, não precisa controlar a chave privada dele).
+
+1. **Login:** na tela inicial, escolha um perfil: **Sou uma companhia
+   aérea** ou **Sou passageiro**.
+2. **Companhia aérea:** entra direto no painel, sem nenhum cadastro — dá
+   para depositar/resgatar o fundo de garantia, cadastrar voos (número +
+   horários de partida e chegada) e inscrever um passageiro já cadastrado
+   (escolhido por nome em uma lista) em um dos voos dela.
+3. **Passageiro (primeiro acesso):** é pedido um nome e o endereço da
+   carteira (formato `0x` + 40 caracteres hexadecimais). Isso cadastra o
+   passageiro no backend; se o mesmo endereço já existir, ele é reaproveitado
+   em vez de dar erro. Depois de cadastrado, é a companhia quem o inscreve
+   nos voos (pelo nome, no painel dela).
+4. **Trocar usuário:** o botão **Trocar usuário**, no topo, limpa a
+   identidade atual e volta para a tela de cadastro, permitindo entrar com
+   outro nome/endereço.
+5. **Painel do passageiro:** consultar um voo pelo número para ver se já foi
+   inscrito nele pela companhia, acompanhar os voos em que está inscrito e,
+   para os que tiverem atraso, buscar o valor oficial junto ao Oracle e
+   confirmar o registro que dispara o pagamento automático.
+6. **Sair:** encerra a sessão e volta para a tela de login (não apaga o
+   cadastro do passageiro, só a sessão local).
+
+> As leituras do contrato (consultar voo, calcular multa etc.) usam RPC
+> direto e dependem de `VITE_CONTRACT_ADDRESS`/`VITE_RPC_URL` estarem
+> configurados (veja `frontend/.env.example`). Sem isso, a navegação e o
+> cadastro continuam funcionando normalmente, só as consultas ao contrato
+> falham.
 
 ### Estrutura do frontend
 
-- `src/App.tsx`: orquestra o login, mantém uma carteira independente por papel (companhia/passageiro), o endereço do contrato e qual painel exibir.
-- `src/components/LoginScreen.tsx`: tela inicial — escolha do perfil, endereço do contrato e endereço da carteira desse perfil (digitado ou preenchido via MetaMask).
-- `src/components/TopBar.tsx`: cabeçalho fixo com as abas Companhia/Passageiro, o endereço do contrato, a carteira ativa e os botões de trocar de conta/sair.
-- `src/components/ContractGate.tsx`: tela de segurança para redefinir o endereço do contrato, caso ele seja limpo depois do login.
-- `src/components/RoleConnectGate.tsx`: tela exibida ao trocar para uma aba cujo perfil ainda não tem um endereço definido.
-- `src/components/AirlinePanel.tsx`: fundo de garantia, cadastro e listagem de voos da companhia.
-- `src/components/PassengerPanel.tsx`: inscrição em voos, listagem dos voos do passageiro e fluxo de indenização.
-- `src/hooks/useWallet.ts`: mantém o endereço de cada papel (digitável) e, opcionalmente, conecta a MetaMask para anexar um `signer` real (uma instância por papel).
+- `src/App.tsx`: orquestra o login, a identidade do passageiro e qual painel
+  exibir.
+- `src/config.ts`: configuração fixa (URL do backend, RPC e endereço do
+  contrato para leituras diretas).
+- `src/api.ts`: chamadas ao backend (cadastro de passageiro, ações da
+  companhia e do passageiro que exigem assinatura).
+- `src/hooks/usePassengerIdentity.ts`: identidade do passageiro (nome +
+  endereço) persistida no `localStorage`, cadastrada via backend.
+- `src/components/LoginScreen.tsx`: tela inicial de escolha de perfil.
+- `src/components/PassengerRegisterGate.tsx`: cadastro do passageiro
+  (nome + endereço da carteira).
+- `src/components/TopBar.tsx`: cabeçalho fixo com as abas Companhia/
+  Passageiro, a identidade ativa e os botões de trocar usuário/sair.
+- `src/components/AirlinePanel.tsx`: fundo de garantia, cadastro e listagem
+  de voos da companhia e inscrição de passageiros (por nome) nos voos dela
+  (tudo via backend).
+- `src/components/PassengerPanel.tsx`: consulta de voos, listagem dos voos
+  em que o passageiro foi inscrito e fluxo de indenização.
 - `src/utils/address.ts`: validação e formatação de endereços.
 - `src/contract.ts`: ABI do `SeguroParametrico.sol`.
 - Cada componente possui seu próprio arquivo `.css` para personalização visual.

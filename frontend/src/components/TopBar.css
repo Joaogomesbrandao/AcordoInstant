@@ -71,7 +71,7 @@
   flex-shrink: 0;
 }
 
-.contract-chip {
+.identity-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -84,11 +84,7 @@
   font-family: var(--font-mono);
 }
 
-.contract-chip:hover {
-  border-color: var(--color-navy);
-}
-
-.contract-chip-dot {
+.identity-chip-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -96,56 +92,9 @@
   flex-shrink: 0;
 }
 
-.contract-chip-empty {
+.identity-chip-empty {
   font-family: inherit;
   color: var(--color-ink-muted);
-}
-
-.contract-chip-empty .contract-chip-dot {
-  background: var(--color-ink-faint);
-}
-
-.contract-editor {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.contract-editor input {
-  width: 220px;
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-navy);
-  outline: none;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-}
-
-.topbar-icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  color: var(--color-ink-muted);
-}
-
-.topbar-icon-btn:hover {
-  background: var(--color-bg-alt);
-}
-
-.wallet-chip {
-  padding: 0.48rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--color-ink);
 }
 
 .topbar-text-btn {
@@ -180,10 +129,6 @@
     width: 100%;
     justify-content: flex-end;
     flex-wrap: wrap;
-  }
-
-  .contract-editor input {
-    width: 150px;
   }
 
   .topbar-text-btn {

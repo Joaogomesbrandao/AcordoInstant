@@ -10,7 +10,7 @@ function asyncHandler(handler) {
   };
 }
 
-export function createApp({ service, blockchainService, config }) {
+export function createApp({ service, blockchainService, flightContractService, config }) {
   const app = express();
 
   // Em desenvolvimento, o frontend costuma rodar no Vite (porta 3000) e o
@@ -173,6 +173,66 @@ export function createApp({ service, blockchainService, config }) {
     }
   );
 
+  // Rotas usadas pelo painel da companhia (frontend). A companhia e unica e
+  // fixa: todas essas acoes sao assinadas pelo backend com a mesma chave
+  // (OPERATOR_PRIVATE_KEY), a interface nunca lida com carteira/assinatura.
+  app.get(
+    "/companhia/saldo",
+    asyncHandler(async (_req, res) => {
+      res.json(await flightContractService.consultarSaldo());
+    })
+  );
+
+  app.get(
+    "/companhia/voos",
+    asyncHandler(async (_req, res) => {
+      res.json(await flightContractService.listarVoos());
+    })
+  );
+
+  app.post(
+    "/companhia/voos",
+    asyncHandler(async (req, res) => {
+      const { vooId, horarioPartida, horarioChegada } = req.body ?? {};
+      res.status(201).json(
+        await flightContractService.cadastrarVoo(vooId, horarioPartida, horarioChegada)
+      );
+    })
+  );
+
+  app.post(
+    "/companhia/depositar-fundo",
+    asyncHandler(async (req, res) => {
+      const { valorEth } = req.body ?? {};
+      res.json(await flightContractService.depositarFundo(valorEth));
+    })
+  );
+
+  app.post(
+    "/companhia/resgatar-fundo",
+    asyncHandler(async (req, res) => {
+      const { valorEth } = req.body ?? {};
+      res.json(await flightContractService.resgatarFundo(valorEth));
+    })
+  );
+
+  // A companhia inscreve um passageiro ja cadastrado (por id, resolvido a
+  // partir do nome escolhido na interface) em um voo dela — o passageiro
+  // nao assina nada, so recebe o deposito caso tenha direito depois.
+  app.post(
+    "/companhia/voos/:vooId/inscrever",
+    asyncHandler(async (req, res) => {
+      const { passengerId } = req.body ?? {};
+      const passenger = await service.getPassenger(passengerId);
+      res.json(
+        await flightContractService.inscreverPassageiro(
+          req.params.vooId,
+          passenger.walletAddress
+        )
+      );
+    })
+  );
+
   if (config.serveFrontend) {
     app.use(express.static(config.frontendDistDir));
     app.use((req, res, next) => {
@@ -186,7 +246,9 @@ export function createApp({ service, blockchainService, config }) {
         req.path === "/api" ||
         req.path.startsWith("/api/") ||
         req.path === "/voos" ||
-        req.path.startsWith("/voos/")
+        req.path.startsWith("/voos/") ||
+        req.path === "/companhia" ||
+        req.path.startsWith("/companhia/")
       ) {
         next();
         return;

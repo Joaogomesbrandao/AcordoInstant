@@ -1,4 +1,4 @@
-.role-gate {
+.passenger-gate {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6,7 +6,7 @@
   min-height: calc(100vh - 68px);
 }
 
-.role-gate-card {
+.passenger-gate-card {
   width: 100%;
   max-width: 440px;
   text-align: center;
@@ -17,7 +17,7 @@
   padding: 2.25rem 2rem;
 }
 
-.role-gate-title {
+.passenger-gate-title {
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 600;
@@ -25,14 +25,14 @@
   margin: 0.5rem 0 0.6rem;
 }
 
-.role-gate-text {
+.passenger-gate-text {
   color: var(--color-ink-muted);
   font-size: 0.92rem;
   line-height: 1.6;
   margin-bottom: 1.5rem;
 }
 
-.role-gate-form {
+.passenger-gate-form {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -40,57 +40,44 @@
   text-align: left;
 }
 
-.role-gate-form input {
+.passenger-gate-form input {
   width: 100%;
   padding: 0.7rem 0.9rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-strong);
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
   outline: none;
   text-align: left;
 }
 
-.role-gate-form input:focus {
+.passenger-gate-form input:focus {
   border-color: var(--color-navy);
   box-shadow: 0 0 0 3px var(--color-navy-soft);
 }
 
-.role-gate-form input.invalid {
+.passenger-gate-form input.invalid {
   border-color: var(--color-danger);
 }
 
-.role-gate-form .btn {
+.passenger-gate-form input[name='address'] {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.passenger-gate-form .btn {
   align-self: center;
   min-width: 200px;
   margin-top: 0.3rem;
 }
 
-.role-gate-secondary {
-  display: block;
-  margin: 1rem auto 0;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--color-teal-dark);
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.role-gate-secondary:hover {
-  color: var(--color-navy);
-}
-
-.role-gate-secondary:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.role-gate-error {
+.passenger-gate-error {
   margin-top: 0.9rem;
   color: var(--color-danger);
   font-size: 0.85rem;
+}
+
+.passenger-gate-hint {
+  margin-top: 1.1rem;
+  font-size: 0.78rem;
+  color: var(--color-ink-faint);
+  line-height: 1.5;
 }

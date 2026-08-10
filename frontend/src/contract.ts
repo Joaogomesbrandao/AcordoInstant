@@ -46,6 +46,16 @@ export const CONTRACT_ABI = [
   {
     "inputs": [
       { "internalType": "uint256", "name": "vooId", "type": "uint256" },
+      { "internalType": "address", "name": "passageiro", "type": "address" }
+    ],
+    "name": "inscreverPassageiroPelaEmpresa",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "vooId", "type": "uint256" },
       { "internalType": "uint256", "name": "atrasoHorasInformado", "type": "uint256" },
       { "internalType": "uint256", "name": "atrasoHorasOficial", "type": "uint256" }
     ],
@@ -162,6 +172,16 @@ export const CONTRACT_ABI = [
       { "indexed": true, "internalType": "address", "name": "passageiro", "type": "address" }
     ],
     "name": "PassageiroInscrito",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "vooId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "empresa", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "passageiro", "type": "address" }
+    ],
+    "name": "PassageiroInscritoPelaEmpresa",
     "type": "event"
   },
   {

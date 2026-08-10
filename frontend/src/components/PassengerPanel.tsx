@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { BrowserProvider, Contract, JsonRpcSigner, formatEther } from 'ethers';
-import { CONTRACT_ABI } from '../contract';
-import { apiUrl } from '../utils/api';
+import { formatEther } from 'ethers';
+import { getReadContract } from '../config';
+import { consultarAtrasoOficial, registrarAtraso as registrarAtrasoNoBackend } from '../api';
+import type { PassengerIdentity } from '../hooks/usePassengerIdentity';
 import './PassengerPanel.css';
 
 interface PassengerPanelProps {
-  signer: JsonRpcSigner | null;
-  walletAddress: string;
-  contractAddress: string;
+  identity: PassengerIdentity;
 }
 
 interface SearchedFlight {
@@ -28,31 +27,46 @@ interface MyFlight {
 }
 
 // Espelha a regra fixa do contrato (LIMIAR_ATRASO_HORAS / VALOR_MULTA) só para
-// exibir uma estimativa no histórico, sem precisar de uma chamada extra por voo.
+// exibir uma estimativa quando a leitura on-chain não estiver disponível.
 function estimatePenalty(atrasoHorasOficial: number): string {
   return atrasoHorasOficial > 2 ? '0.01' : '0';
 }
 
 // Uma indenização já foi solicitada para este voo quando o passageiro chegou
-// a assinar `registrarAtraso` — o contrato não guarda um flag explícito para
-// isso, então usamos como indício o atraso oficial (ou já ter sido pago).
+// a registrar o atraso, o contrato não guarda um flag explícito para isso,
+// então usamos como indício o atraso oficial (ou já ter sido pago).
 function jaSolicitou(flight: MyFlight): boolean {
   return flight.pago || Number(flight.atrasoHorasOficial) > 0 || Number(flight.atrasoHorasInformado) > 0;
 }
 
 function formatDateTime(unixSeconds: number): string {
-  if (!unixSeconds) return '—';
+  if (!unixSeconds) return '-';
   return new Date(unixSeconds * 1000).toLocaleString('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
   });
 }
 
-export function PassengerPanel({ signer, walletAddress, contractAddress }: PassengerPanelProps) {
+function friendlyError(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
+/**
+ * O passageiro não assina nada por conta própria: sua carteira (só o
+ * endereço) é usada para recebimento do depósito e para identificá-lo nas
+ * consultas. Leituras (consultarVoo, listarVoosDoPassageiro...) são feitas
+ * direto na blockchain via RPC, sem precisar de nenhuma extensão instalada.
+ * A inscrição em voos é feita pela companhia (pelo nome do passageiro); aqui
+ * o passageiro só acompanha os voos em que já foi inscrito e, em caso de
+ * atraso, confirma o valor oficial para receber a indenização (ação que
+ * também passa pelo backend, que é quem detém a carteira operadora).
+ */
+export function PassengerPanel({ identity }: PassengerPanelProps) {
+  const walletAddress = identity.address;
+
   const [searchVooId, setSearchVooId] = useState('');
   const [searchedFlight, setSearchedFlight] = useState<SearchedFlight | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [enrollLoading, setEnrollLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   const [myFlights, setMyFlights] = useState<MyFlight[] | null>(null);
@@ -64,17 +78,6 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
   const [penalty, setPenalty] = useState('0');
   const [claimLoading, setClaimLoading] = useState(false);
 
-  function getContract() {
-    if (!signer) return null;
-    return new Contract(contractAddress, CONTRACT_ABI, signer);
-  }
-
-  function getReadContract() {
-    if (!window.ethereum) return null;
-    const provider = new BrowserProvider(window.ethereum);
-    return new Contract(contractAddress, CONTRACT_ABI, provider);
-  }
-
   async function handleSearchFlight() {
     if (!searchVooId) return;
 
@@ -84,11 +87,6 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
 
     try {
       const readContract = getReadContract();
-      if (!readContract) {
-        setMessage('Nenhum provedor Web3 disponível neste navegador para consultar o contrato.');
-        return;
-      }
-
       const voo = await readContract.consultarVoo(searchVooId);
       const inscricao = await readContract.consultarInscricao(searchVooId, walletAddress);
 
@@ -101,36 +99,9 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
       });
     } catch (err) {
       console.error(err);
-      setMessage('Voo não encontrado. Confira o número do voo e o endereço do contrato.');
+      setMessage(friendlyError(err, 'Voo não encontrado. Confira o número do voo.'));
     } finally {
       setSearchLoading(false);
-    }
-  }
-
-  async function handleEnroll() {
-    if (!searchedFlight) return;
-
-    setEnrollLoading(true);
-    setMessage('');
-
-    try {
-      const contract = getContract();
-      if (!contract) {
-        setMessage('Esta identidade não tem uma carteira conectada — use "preencher com a MetaMask" para assinar transações.');
-        return;
-      }
-
-      const tx = await contract.inscreverNoVoo(searchedFlight.id);
-      await tx.wait();
-
-      setMessage(`Inscrição confirmada no voo ${searchedFlight.id}.`);
-      setSearchedFlight({ ...searchedFlight, jaInscrito: true });
-      await loadMyFlights();
-    } catch (err) {
-      console.error(err);
-      setMessage('Erro ao se inscrever no voo.');
-    } finally {
-      setEnrollLoading(false);
     }
   }
 
@@ -138,11 +109,6 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
     setMyFlightsLoading(true);
     try {
       const readContract = getReadContract();
-      if (!readContract) {
-        setMessage('Nenhum provedor Web3 disponível neste navegador para consultar o contrato.');
-        return;
-      }
-
       const ids: bigint[] = await readContract.listarVoosDoPassageiro(walletAddress);
       const rows = await Promise.all(
         ids.map(async (id) => {
@@ -163,7 +129,7 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
       setMyFlights(rows.reverse());
     } catch (err) {
       console.error(err);
-      setMessage('Erro ao carregar seus voos.');
+      setMessage(friendlyError(err, 'Erro ao carregar seus voos.'));
     } finally {
       setMyFlightsLoading(false);
     }
@@ -185,60 +151,32 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
     setMessage('');
 
     try {
-      const response = await fetch(apiUrl(`/voos/${claimVooId}/consultar`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passageiro: walletAddress }),
-      });
+      const { atrasoHorasOficial } = await consultarAtrasoOficial(claimVooId, walletAddress);
+      setOfficialDelay(atrasoHorasOficial);
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.erro || 'Erro ao consultar atraso oficial');
-      }
-
-      const data: { atrasoHorasOficial: number } = await response.json();
-      setOfficialDelay(data.atrasoHorasOficial);
-
-      const readContract = getReadContract();
-      if (readContract) {
-        const multa = await readContract.calcularMulta(data.atrasoHorasOficial);
+      try {
+        const readContract = getReadContract();
+        const multa = await readContract.calcularMulta(atrasoHorasOficial);
         setPenalty(formatEther(multa));
-      } else {
-        setPenalty(estimatePenalty(data.atrasoHorasOficial));
+      } catch {
+        setPenalty(estimatePenalty(atrasoHorasOficial));
       }
     } catch (err) {
       console.error(err);
-      setMessage(err instanceof Error ? err.message : 'Erro ao consultar atraso oficial.');
+      setMessage(friendlyError(err, 'Erro ao consultar atraso oficial.'));
     } finally {
       setClaimLoading(false);
     }
   }
 
-  async function registerDelay(vooId: string, atrasoInformado: number, atrasoOficial: number) {
-    const contract = getContract();
-    if (!contract) {
-      setMessage('Esta identidade não tem uma carteira conectada — use "preencher com a MetaMask" para assinar transações.');
-      return false;
-    }
+  async function registrarAtraso(vooId: string, atrasoInformado: number, atrasoOficial: number) {
+    const resultado = await registrarAtrasoNoBackend(vooId, walletAddress, atrasoInformado, atrasoOficial);
 
-    const tx = await contract.registrarAtraso(vooId, atrasoInformado, atrasoOficial);
-    const receipt = await tx.wait();
-
-    const iface = contract.interface;
     let result = `Atraso do voo ${vooId} registrado.`;
-
-    for (const log of receipt.logs) {
-      try {
-        const parsed = iface.parseLog(log);
-        if (parsed?.name === 'PagamentoRealizado') {
-          result += ' Pagamento realizado.';
-        }
-        if (parsed?.name === 'QuitacaoEmitida') {
-          result += ' Quitação emitida.';
-        }
-      } catch {
-        // ignore unknown logs
-      }
+    if (resultado.pago) {
+      result += ' Pagamento realizado.';
+    } else if (resultado.mensagem) {
+      result += ` ${resultado.mensagem}`;
     }
 
     setMessage(result);
@@ -253,7 +191,7 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
     setMessage('');
 
     try {
-      const ok = await registerDelay(claimVooId, Number(informedDelay) || 0, officialDelay);
+      const ok = await registrarAtraso(claimVooId, Number(informedDelay) || 0, officialDelay);
       if (ok) {
         setClaimVooId('');
         setInformedDelay('');
@@ -262,7 +200,7 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
       }
     } catch (err) {
       console.error(err);
-      setMessage('Erro ao registrar atraso. Verifique se você está inscrito neste voo.');
+      setMessage(friendlyError(err, 'Erro ao registrar atraso. Verifique se você está inscrito neste voo.'));
     } finally {
       setClaimLoading(false);
     }
@@ -273,10 +211,10 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
     setMessage('');
 
     try {
-      await registerDelay(flight.vooId, Number(flight.atrasoHorasInformado), Number(flight.atrasoHorasOficial));
+      await registrarAtraso(flight.vooId, Number(flight.atrasoHorasInformado), Number(flight.atrasoHorasOficial));
     } catch (err) {
       console.error(err);
-      setMessage('Erro ao tentar registrar o pagamento novamente.');
+      setMessage(friendlyError(err, 'Erro ao tentar registrar o pagamento novamente.'));
     } finally {
       setClaimLoading(false);
     }
@@ -289,22 +227,23 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
       <section className="stripe stripe-cream">
         <div className="stripe-inner">
           <span className="page-eyebrow" style={{ color: 'var(--color-teal-dark)' }}>
-            Passageiro
+            Passageiro · {identity.name}
           </span>
           <h1 className="page-title">Painel do passageiro</h1>
           <p className="page-description">
-            Inscreva-se nos seus voos e, em caso de atraso, confirme o valor
-            oficial apurado pelo Oracle para receber sua indenização.
+            Acompanhe os voos em que a companhia te inscreveu e, em caso de
+            atraso, confirme o valor oficial apurado pelo Oracle para receber
+            sua indenização.
           </p>
 
           <div className="stat-inline-row">
             <div className="stat-inline-item">
-              <span className="stat-inline-value">{myFlights ? myFlights.length : '—'}</span>
+              <span className="stat-inline-value">{myFlights ? myFlights.length : '-'}</span>
               <span className="stat-inline-label">Voos em que você está inscrito</span>
             </div>
             <div className="stat-inline-divider" />
             <div className="stat-inline-item">
-              <span className="stat-inline-value">{claimedFlights ? claimedFlights.length : '—'}</span>
+              <span className="stat-inline-value">{claimedFlights ? claimedFlights.length : '-'}</span>
               <span className="stat-inline-label">Indenizações solicitadas</span>
             </div>
           </div>
@@ -315,7 +254,10 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
         <div className="stripe-inner">
           <h2 className="section-title">
             <span className="section-title-row">
-              <span className="step-number">1</span> Inscrever-se em um voo
+              <span className="step-number">1</span> Consultar um voo
+            </span>
+            <span className="section-title-hint">
+              A inscrição em voos é feita pela companhia aérea; aqui você só confere os dados.
             </span>
           </h2>
           <div className="form-row">
@@ -352,14 +294,10 @@ export function PassengerPanel({ signer, walletAddress, contractAddress }: Passe
               {searchedFlight.jaInscrito ? (
                 <p className="hint-text">Você já está inscrito neste voo.</p>
               ) : (
-                <button
-                  className="btn btn-primary"
-                  style={{ marginTop: '0.9rem' }}
-                  onClick={handleEnroll}
-                  disabled={enrollLoading}
-                >
-                  {enrollLoading ? 'Inscrevendo...' : 'Inscrever-se neste voo'}
-                </button>
+                <p className="hint-text">
+                  Você ainda não foi inscrito neste voo. Peça para a companhia aérea te
+                  cadastrar usando seu nome.
+                </p>
               )}
             </div>
           )}

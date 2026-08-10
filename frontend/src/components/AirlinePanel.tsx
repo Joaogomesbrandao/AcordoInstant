@@ -1,30 +1,35 @@
-import { useState } from 'react';
-import { BrowserProvider, Contract, JsonRpcSigner, parseEther, formatEther } from 'ethers';
-import { CONTRACT_ABI } from '../contract';
+import { useEffect, useState } from 'react';
+import {
+  companhiaCadastrarVoo,
+  companhiaConsultarSaldo,
+  companhiaDepositarFundo,
+  companhiaInscreverPassageiro,
+  companhiaListarVoos,
+  companhiaResgatarFundo,
+  listarPassageiros,
+  type Passageiro,
+  type VooResumo,
+} from '../api';
 import './AirlinePanel.css';
 
-interface AirlinePanelProps {
-  signer: JsonRpcSigner | null;
-  walletAddress: string;
-  contractAddress: string;
-}
-
-interface FlightRow {
-  id: string;
-  horarioPartida: number;
-  horarioChegada: number;
-  totalPassageiros: string;
-}
-
 function formatDateTime(unixSeconds: number): string {
-  if (!unixSeconds) return '—';
+  if (!unixSeconds) return '-';
   return new Date(unixSeconds * 1000).toLocaleString('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
   });
 }
 
-export function AirlinePanel({ signer, walletAddress, contractAddress }: AirlinePanelProps) {
+function friendlyError(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
+/**
+ * A companhia é única e fixa: suas chaves ficam só no backend, então este
+ * painel nunca lida com carteira/assinatura, só chama o backend, que é
+ * quem assina as transações em nome da companhia.
+ */
+export function AirlinePanel() {
   const [balance, setBalance] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -33,60 +38,36 @@ export function AirlinePanel({ signer, walletAddress, contractAddress }: Airline
   const [arrivalTime, setArrivalTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [flights, setFlights] = useState<FlightRow[] | null>(null);
+  const [flights, setFlights] = useState<VooResumo[] | null>(null);
   const [flightsLoading, setFlightsLoading] = useState(false);
 
-  function getContract() {
-    if (!signer) return null;
-    return new Contract(contractAddress, CONTRACT_ABI, signer);
-  }
+  const [passengers, setPassengers] = useState<Passageiro[]>([]);
+  const [enrollFlightId, setEnrollFlightId] = useState('');
+  const [selectedPassengerId, setSelectedPassengerId] = useState('');
+  const [enrollLoading, setEnrollLoading] = useState(false);
 
-  function getReadContract() {
-    if (!window.ethereum) return null;
-    const provider = new BrowserProvider(window.ethereum);
-    return new Contract(contractAddress, CONTRACT_ABI, provider);
-  }
+  useEffect(() => {
+    listarPassageiros()
+      .then(setPassengers)
+      .catch(() => setPassengers([]));
+  }, []);
 
   async function handleConsultBalance() {
     try {
-      const readContract = getReadContract();
-      if (!readContract) {
-        setMessage('Nenhum provedor Web3 disponível neste navegador para consultar o contrato.');
-        return;
-      }
-      const saldo = await readContract.consultarSaldo(walletAddress);
-      setBalance(formatEther(saldo));
+      const { saldoEth } = await companhiaConsultarSaldo();
+      setBalance(saldoEth);
     } catch (err) {
-      console.error(err);
-      setMessage('Erro ao consultar saldo. Verifique se o endereço do contrato está correto.');
+      setMessage(friendlyError(err, 'Erro ao consultar saldo.'));
     }
   }
 
   async function loadFlights() {
     setFlightsLoading(true);
     try {
-      const readContract = getReadContract();
-      if (!readContract) {
-        setMessage('Nenhum provedor Web3 disponível neste navegador para consultar o contrato.');
-        return;
-      }
-
-      const ids: bigint[] = await readContract.listarVoosDaEmpresa(walletAddress);
-      const rows = await Promise.all(
-        ids.map(async (id) => {
-          const voo = await readContract.consultarVoo(id);
-          return {
-            id: voo.id.toString(),
-            horarioPartida: Number(voo.horarioPartida),
-            horarioChegada: Number(voo.horarioChegada),
-            totalPassageiros: voo.totalPassageiros.toString(),
-          };
-        })
-      );
-      setFlights(rows.reverse());
+      const voos = await companhiaListarVoos();
+      setFlights(voos);
     } catch (err) {
-      console.error(err);
-      setMessage('Erro ao carregar voos cadastrados.');
+      setMessage(friendlyError(err, 'Erro ao carregar voos cadastrados.'));
     } finally {
       setFlightsLoading(false);
     }
@@ -99,21 +80,12 @@ export function AirlinePanel({ signer, walletAddress, contractAddress }: Airline
     setMessage('');
 
     try {
-      const contract = getContract();
-      if (!contract) {
-        setMessage('Esta identidade não tem uma carteira conectada — use "preencher com a MetaMask" para assinar transações.');
-        return;
-      }
-
-      const tx = await contract.depositarFundo({ value: parseEther(depositAmount) });
-      await tx.wait();
-
+      await companhiaDepositarFundo(depositAmount);
       setMessage(`Depósito de ${depositAmount} ETH realizado.`);
       setDepositAmount('');
       await handleConsultBalance();
     } catch (err) {
-      console.error(err);
-      setMessage('Erro ao depositar fundos.');
+      setMessage(friendlyError(err, 'Erro ao depositar fundos.'));
     } finally {
       setLoading(false);
     }
@@ -126,21 +98,12 @@ export function AirlinePanel({ signer, walletAddress, contractAddress }: Airline
     setMessage('');
 
     try {
-      const contract = getContract();
-      if (!contract) {
-        setMessage('Esta identidade não tem uma carteira conectada — use "preencher com a MetaMask" para assinar transações.');
-        return;
-      }
-
-      const tx = await contract.resgatarFundo(parseEther(withdrawAmount));
-      await tx.wait();
-
+      await companhiaResgatarFundo(withdrawAmount);
       setMessage(`Resgate de ${withdrawAmount} ETH realizado.`);
       setWithdrawAmount('');
       await handleConsultBalance();
     } catch (err) {
-      console.error(err);
-      setMessage('Erro ao resgatar fundos.');
+      setMessage(friendlyError(err, 'Erro ao resgatar fundos.'));
     } finally {
       setLoading(false);
     }
@@ -153,17 +116,10 @@ export function AirlinePanel({ signer, walletAddress, contractAddress }: Airline
     setMessage('');
 
     try {
-      const contract = getContract();
-      if (!contract) {
-        setMessage('Esta identidade não tem uma carteira conectada — use "preencher com a MetaMask" para assinar transações.');
-        return;
-      }
-
       const horarioPartida = Math.floor(new Date(departureTime).getTime() / 1000);
       const horarioChegada = Math.floor(new Date(arrivalTime).getTime() / 1000);
 
-      const tx = await contract.cadastrarVoo(flightId, horarioPartida, horarioChegada);
-      await tx.wait();
+      await companhiaCadastrarVoo(flightId, horarioPartida, horarioChegada);
 
       setMessage(`Voo ${flightId} cadastrado com sucesso.`);
       setFlightId('');
@@ -171,10 +127,30 @@ export function AirlinePanel({ signer, walletAddress, contractAddress }: Airline
       setArrivalTime('');
       await loadFlights();
     } catch (err) {
-      console.error(err);
-      setMessage('Erro ao cadastrar voo. Verifique os horários e se o número do voo já não está em uso.');
+      setMessage(friendlyError(err, 'Erro ao cadastrar voo. Verifique os horários e se o número do voo já não está em uso.'));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleEnrollPassenger() {
+    if (!enrollFlightId || !selectedPassengerId) return;
+
+    setEnrollLoading(true);
+    setMessage('');
+
+    try {
+      await companhiaInscreverPassageiro(enrollFlightId, Number(selectedPassengerId));
+
+      const passageiro = passengers.find((p) => String(p.id) === selectedPassengerId);
+      setMessage(`${passageiro?.name ?? 'Passageiro'} inscrito no voo ${enrollFlightId}.`);
+      setSelectedPassengerId('');
+      setEnrollFlightId('');
+      await loadFlights();
+    } catch (err) {
+      setMessage(friendlyError(err, 'Erro ao inscrever o passageiro. Verifique se o voo existe e se ele já não está inscrito.'));
+    } finally {
+      setEnrollLoading(false);
     }
   }
 
@@ -187,18 +163,18 @@ export function AirlinePanel({ signer, walletAddress, contractAddress }: Airline
           </span>
           <h1 className="page-title">Painel da companhia</h1>
           <p className="page-description">
-            Deposite o fundo de garantia e cadastre os horários dos seus voos.
-            Os passageiros se inscrevem por conta própria depois disso.
+            Deposite o fundo de garantia, cadastre os horários dos seus voos
+            e inscreva os passageiros neles pelo nome.
           </p>
 
           <div className="stat-inline-row">
             <div className="stat-inline-item">
-              <span className="stat-inline-value">{flights ? flights.length : '—'}</span>
+              <span className="stat-inline-value">{flights ? flights.length : '-'}</span>
               <span className="stat-inline-label">Voos cadastrados</span>
             </div>
             <div className="stat-inline-divider" />
             <div className="stat-inline-item">
-              <span className="stat-inline-value">{balance !== null ? `${balance} ETH` : '—'}</span>
+              <span className="stat-inline-value">{balance !== null ? `${balance} ETH` : '-'}</span>
               <span className="stat-inline-label">Fundo disponível</span>
             </div>
           </div>
@@ -260,7 +236,7 @@ export function AirlinePanel({ signer, walletAddress, contractAddress }: Airline
         <div className="stripe-inner">
           <h2 className="section-title">
             <span className="section-title-row">Cadastrar voo</span>
-            <span className="section-title-hint">A carteira conectada é usada como identidade da companhia.</span>
+            <span className="section-title-hint">A companhia usa sua identidade fixa automaticamente.</span>
           </h2>
 
           <div className="field">
@@ -301,6 +277,63 @@ export function AirlinePanel({ signer, walletAddress, contractAddress }: Airline
           >
             {loading ? 'Cadastrando...' : 'Cadastrar voo'}
           </button>
+        </div>
+      </section>
+
+      <section className="stripe stripe-teal">
+        <div className="stripe-inner">
+          <h2 className="section-title">
+            <span className="section-title-row">Inscrever passageiro em um voo</span>
+            <span className="section-title-hint">
+              Escolha um passageiro já cadastrado pelo nome e o voo em que ele vai viajar.
+            </span>
+          </h2>
+
+          {passengers.length === 0 && (
+            <p className="empty-text">
+              Nenhum passageiro cadastrado ainda. Peça para ele se cadastrar na tela de login.
+            </p>
+          )}
+
+          {passengers.length > 0 && (
+            <>
+              <div className="form-row">
+                <div className="field">
+                  <label htmlFor="enroll-passenger">Passageiro</label>
+                  <select
+                    id="enroll-passenger"
+                    value={selectedPassengerId}
+                    onChange={(e) => setSelectedPassengerId(e.target.value)}
+                  >
+                    <option value="">Selecione um passageiro</option>
+                    {passengers.map((passenger) => (
+                      <option key={passenger.id} value={passenger.id}>
+                        {passenger.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="enroll-flight-id">Número do voo</label>
+                  <input
+                    id="enroll-flight-id"
+                    type="number"
+                    min="0"
+                    value={enrollFlightId}
+                    onChange={(e) => setEnrollFlightId(e.target.value)}
+                    placeholder="1234"
+                  />
+                </div>
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleEnrollPassenger}
+                disabled={enrollLoading || !enrollFlightId || !selectedPassengerId}
+              >
+                {enrollLoading ? 'Inscrevendo...' : 'Inscrever passageiro'}
+              </button>
+            </>
+          )}
         </div>
       </section>
 
