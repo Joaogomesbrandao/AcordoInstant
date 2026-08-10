@@ -1,0 +1,18 @@
+{
+  "name": "acordoinstant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node backend/server.js",
+    "check:contract": "node scripts/check-contract.js",
+    "smoke:api": "node scripts/smoke-api.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "ethers": "^6.15.0",
+    "express": "^5.1.0",
+    "solc": "^0.8.30"
+  }
+}
+
