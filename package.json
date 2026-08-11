@@ -4,13 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/reset-db.js",
     "dev": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "node backend/server.js",
     "dev:frontend": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
+    "prestart": "node scripts/reset-db.js",
     "start": "node backend/server.js",
+    "reset:db": "node scripts/reset-db.js",
+    "chain": "hardhat node",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
     "check:contract": "node scripts/check-contract.js",
-    "smoke:api": "node scripts/smoke-api.js"
+    "check:abi": "node scripts/check-abi.js",
+    "smoke:api": "node scripts/smoke-api.js",
+    "smoke:onchain": "node scripts/smoke-onchain.js"
   },
   "dependencies": {
     "concurrently": "^9.2.1",
@@ -18,5 +28,9 @@
     "ethers": "^6.15.0",
     "express": "^5.1.0",
     "solc": "^0.8.30"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.7",
+    "hardhat": "^3.12.0"
   }
 }

@@ -6,3 +6,6 @@ coverage/
 dist/
 data/store.local.json
 data/store.smoke.json
+
+# Tipos gerados pelo typechain durante `npx hardhat compile` (raiz do projeto).
+/types/

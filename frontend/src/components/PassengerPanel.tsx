@@ -24,6 +24,7 @@ interface MyFlight {
   atrasoHorasInformado: string;
   atrasoHorasOficial: string;
   pago: boolean;
+  registrado: boolean;
 }
 
 // Espelha a regra fixa do contrato (LIMIAR_ATRASO_HORAS / VALOR_MULTA) só para
@@ -32,11 +33,10 @@ function estimatePenalty(atrasoHorasOficial: number): string {
   return atrasoHorasOficial > 2 ? '0.01' : '0';
 }
 
-// Uma indenização já foi solicitada para este voo quando o passageiro chegou
-// a registrar o atraso, o contrato não guarda um flag explícito para isso,
-// então usamos como indício o atraso oficial (ou já ter sido pago).
+// O contrato marca `registrado` na inscrição assim que o atraso é registrado,
+// mesmo quando o atraso apurado foi zero e nenhum pagamento ocorreu.
 function jaSolicitou(flight: MyFlight): boolean {
-  return flight.pago || Number(flight.atrasoHorasOficial) > 0 || Number(flight.atrasoHorasInformado) > 0;
+  return flight.registrado || flight.pago;
 }
 
 function formatDateTime(unixSeconds: number): string {
@@ -123,6 +123,7 @@ export function PassengerPanel({ identity }: PassengerPanelProps) {
             atrasoHorasInformado: inscricao.atrasoHorasInformado.toString(),
             atrasoHorasOficial: inscricao.atrasoHorasOficial.toString(),
             pago: inscricao.pago,
+            registrado: inscricao.registrado,
           };
         })
       );

@@ -1,12 +1,12 @@
 # Diagrama de arquitetura
 
 Versão em Mermaid do diagrama original do grupo (`arquiteturaBase.jpeg`),
-atualizada com os nomes e funções que estão sendo implementados. O Oracle é
-um componente off-chain, junto com o frontend, o backend e o banco mockado:
-ele consulta a fonte oficial dos dados do voo e repassa o atraso ao backend,
-mas não possui nenhum privilégio no `SeguroParametrico.sol` e não assina
-transações. Quem escreve no contrato são as próprias carteiras da companhia
-e do passageiro.
+atualizada com os nomes e funções que estão implementados. O Oracle é um
+componente off-chain, junto com o frontend, o backend e o banco mockado: ele
+consulta a fonte oficial dos dados do voo e repassa o atraso ao backend, mas
+não possui nenhum privilégio no `SeguroParametrico.sol` e não assina
+transações. Quem escreve no contrato é a carteira única da companhia aérea,
+operada pelo backend.
 
 ```mermaid
 flowchart TB
@@ -17,7 +17,7 @@ flowchart TB
     subgraph OFF["Off-chain"]
         direction LR
         Frontend("Frontend<br/>React - interface<br/>(passageiro e companhia)")
-        Backend("Backend<br/>Node.js - API")
+        Backend("Backend<br/>Node.js - API<br/>carteira única da companhia")
         Oracle("Oracle<br/>Consulta a fonte oficial e repassa<br/>o atraso ao backend (sem privilégios on-chain)")
         Banco("Banco mockado<br/>Fonte oficial de dados de voos")
         Frontend --> Backend
@@ -25,15 +25,15 @@ flowchart TB
         Oracle --> Banco
     end
 
-    subgraph ON["On-chain (blockchain)"]
+    subgraph ON["On-chain (rede de testes)"]
         direction LR
-        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · inscreverNoVoo<br/>registrarAtraso · calcularMulta · resgatarFundo · consultas")
+        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · inscreverPassageiroPelaEmpresa<br/>registrarAtrasoPelaEmpresa · calcularMulta · resgatarFundo · consultas")
     end
 
     Passageiro1 --> Frontend
     Companhia --> Frontend
-    Companhia -->|depositarFundo, cadastrarVoo| Seguro
-    Passageiro1 -->|inscreverNoVoo, registrarAtraso| Seguro
+    Backend -->|"transações assinadas com a<br/>carteira da companhia"| Seguro
+    Frontend -.->|"leituras diretas via RPC<br/>(consultarVoo, consultarInscricao,<br/>listarVoosDoPassageiro, calcularMulta)"| Seguro
     Seguro -->|PagamentoRealizado + QuitacaoEmitida| Passageiro2
 
     classDef offchain fill:#e6e6fa,stroke:#8a7fc4,color:#3d3466;
@@ -45,10 +45,12 @@ flowchart TB
     class Passageiro1,Passageiro2,Companhia atores;
 ```
 
-As chamadas apontadas diretamente para `SeguroParametrico.sol`
-(`depositarFundo`, `cadastrarVoo`, `inscreverNoVoo` e `registrarAtraso`)
-representam transações assinadas pela carteira conectada do próprio ator — a
-companhia ou o passageiro — nunca pelo backend ou pelo Oracle.
+A seta cheia entre `Backend` e `SeguroParametrico.sol` representa as
+transações assinadas com a chave da companhia (`OPERATOR_PRIVATE_KEY`): fundo
+de garantia, cadastro de voo, inscrição de passageiro e registro de atraso. A
+seta tracejada entre `Frontend` e o contrato representa **leituras** feitas
+direto por RPC (`VITE_RPC_URL` + `VITE_CONTRACT_ADDRESS`), que não exigem
+carteira nem extensão no navegador.
 
 ## Observação sobre a posição do Oracle no diagrama
 
@@ -57,19 +59,17 @@ serviço/script Node.js. Ele consulta a fonte de dados dos voos e atua como
 ponte de comunicação entre os dados externos e o sistema. Ele não é um smart
 contract e não possui privilégios especiais no `SeguroParametrico.sol`: não
 tem endereço cadastrado no contrato, não passa por nenhum modifier de acesso
-e não assina nenhuma transação. As transações on-chain são executadas pelas
-próprias carteiras das partes envolvidas — a companhia chama
-`cadastrarVoo`/`depositarFundo`, e o passageiro chama `inscreverNoVoo` e
-`registrarAtraso`.
+e não assina nenhuma transação. O valor que ele apura entra na blockchain
+dentro da transação que a companhia assina.
 
-## Observação sobre o frontend da companhia aérea
+## Observação sobre os dois perfis no mesmo frontend
 
-O mesmo Frontend React atende os dois atores externos. O passageiro o usa
-para informar o voo; a companhia o usa para consultar saldo/voos e para
-disparar o `depositarFundo()`. Por isso existe uma seta de `Companhia` para
-`Frontend` (interação off-chain, pela interface) além da seta de `Companhia`
-direto para `SeguroParametrico.sol` (a transação de depósito em si, que é
-assinada pela carteira da companhia e vai direto para a blockchain).
+O mesmo Frontend React atende os dois atores. A companhia o usa para
+depositar/resgatar o fundo, cadastrar voos e inscrever passageiros; o
+passageiro o usa para consultar voos, ver o atraso oficial apurado pelo
+Oracle e confirmar a solicitação de indenização. Nenhum dos dois lida com
+carteira ou assinatura no navegador: as transações saem do backend, e as
+consultas são leituras públicas do contrato.
 
 Este arquivo é a versão "wrapada" em Markdown do arquivo-fonte
 [`diagrama-arquitetura-base.mmd`](./diagrama-arquitetura-base.mmd), mantido
@@ -78,7 +78,8 @@ exemplo, o [mermaid.live](https://mermaid.live)).
 
 O passo a passo completo de uma chamada — quem envia cada mensagem e em que
 ordem — está no diagrama de sequência, em
-[`arquitetura.md`](./arquitetura.md).
+[`arquitetura.md`](./arquitetura.md). A implantação do contrato na rede de
+testes está em [`deploy.md`](./deploy.md).
 
 ## Configuração de armazenamento
 
@@ -89,15 +90,19 @@ Ficam on-chain:
 - atraso informado (livre, sem efeito no pagamento) e atraso oficial
   (usado no cálculo) registrados por cada passageiro;
 - saldo de garantia de cada companhia;
-- indicação de pagamento por passageiro;
-- eventos de depósito, cadastro, inscrição, atraso, pagamento e quitação.
+- indicação de solicitação (`registrado`) e de pagamento (`pago`) por
+  passageiro;
+- eventos de depósito, cadastro, inscrição, atraso, pagamento, recusa de
+  pagamento e quitação.
 
 Ficam off-chain:
 
 - origem, destino e demais informações operacionais do voo (além do horário,
   que é on-chain);
-- dados pessoais e documentos do passageiro;
-- backend (`backend/server.js`), responsável só pela orquestração da API;
+- dados pessoais e documentos do passageiro (nome e vínculo nome↔endereço
+  ficam no banco do backend);
+- backend (`backend/`), responsável pela orquestração da API e pela carteira
+  da companhia;
 - frontend, com a interface e as regras de apresentação;
 - banco mockado, posteriormente substituível por uma API de voos;
 - Oracle (`oracle/oracle.js`), responsável por consultar a fonte oficial e
@@ -116,15 +121,15 @@ auditoria, reduzindo custo e evitando a exposição de dados pessoais.
   integração — consulta a fonte oficial de dados do voo e repassa o atraso ao
   backend. Ele não possui endereço cadastrado no contrato, não tem nenhuma
   função restrita a ele e não assina transações.
-- **Cada ator assina a própria transação:** a companhia chama
-  `depositarFundo` e `cadastrarVoo` com a própria carteira; o passageiro
-  chama `inscreverNoVoo` e `registrarAtraso` com a própria carteira. Nem o
-  backend nem o Oracle executam transações em nome de outros atores.
-- **Voo com múltiplos passageiros:** como a companhia não vincula mais um
-  passageiro específico ao cadastrar o voo, cada voo pode ter vários
-  passageiros inscritos; cada um só recebe indenização quando ele próprio
-  chama `registrarAtraso`, de forma independente dos demais inscritos.
-
-Este diagrama é uma versão preliminar. Durante próximas entregas iremos
-incorporar o frontend, testes, evidências de implantação e as
-mudanças arquiteturais analisadas durante o desenvolvimento.
+- **Passageiro sem chave privada:** o passageiro informa apenas o endereço que
+  recebe a indenização. Isso elimina a necessidade de MetaMask na demonstração
+  e é o motivo de o contrato expor
+  `inscreverPassageiroPelaEmpresa`/`registrarAtrasoPelaEmpresa` em vez de
+  funções assinadas pelo beneficiário.
+- **O atraso oficial nunca vem do beneficiário:** o backend relê o Oracle
+  antes de assinar e descarta o valor enviado pelo navegador. Não existe
+  função pública em que o passageiro informe o próprio atraso oficial, porque
+  ela permitiria sacar o fundo da companhia com um número inventado.
+- **Voo com múltiplos passageiros:** cada voo pode ter vários passageiros
+  inscritos; cada inscrição é registrada e paga de forma independente das
+  demais.

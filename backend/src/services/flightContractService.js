@@ -3,7 +3,7 @@ import { Contract, JsonRpcProvider, Wallet, formatEther, parseEther } from "ethe
 // Subconjunto do ABI de contracts/SeguroParametrico.sol usado pelo backend
 // para agir em nome da companhia (unica, com chave fixa no servidor). Ver
 // frontend/src/contract.ts para o ABI completo usado nas leituras diretas.
-const FLIGHT_CONTRACT_ABI = [
+export const FLIGHT_CONTRACT_ABI = [
   "function depositarFundo() payable",
   "function resgatarFundo(uint256 valor)",
   "function cadastrarVoo(uint256 vooId, uint256 horarioPartida, uint256 horarioChegada)",
@@ -11,7 +11,13 @@ const FLIGHT_CONTRACT_ABI = [
   "function registrarAtrasoPelaEmpresa(uint256 vooId, address passageiro, uint256 atrasoHorasInformado, uint256 atrasoHorasOficial) returns (bool,string)",
   "function consultarSaldo(address empresa) view returns (uint256)",
   "function consultarVoo(uint256 vooId) view returns (tuple(uint256 id, address empresa, uint256 horarioPartida, uint256 horarioChegada, uint256 totalPassageiros))",
-  "function listarVoosDaEmpresa(address empresa) view returns (uint256[])"
+  "function listarVoosDaEmpresa(address empresa) view returns (uint256[])",
+  // Os eventos abaixo sao obrigatorios aqui: o valor de retorno de
+  // registrarAtrasoPelaEmpresa nao e legivel depois que a transacao e
+  // minerada, entao o resultado real (pagou / por que nao pagou) so vem dos
+  // logs do recibo.
+  "event PagamentoRealizado(uint256 indexed vooId, address indexed empresa, address indexed passageiro, uint256 valor)",
+  "event PagamentoNaoRealizado(uint256 indexed vooId, address indexed passageiro, string motivo)"
 ];
 
 function httpError(message, statusCode = 400) {
@@ -55,9 +61,14 @@ export class FlightContractService {
     this.requireConfigured();
 
     if (!this._signer) {
+      // cacheTimeout: -1 desliga o cache interno do ethers para chamadas como
+      // eth_getTransactionCount. Sem isso, duas acoes seguidas da companhia
+      // (ex.: depositar fundo e ja cadastrar o voo) reaproveitam o nonce
+      // antigo e a segunda transacao falha com "nonce has already been used".
       const provider = new JsonRpcProvider(
         this.config.rpcUrl,
-        this.config.chainId || undefined
+        this.config.chainId || undefined,
+        { cacheTimeout: -1 }
       );
       this._signer = new Wallet(this.config.operatorPrivateKey, provider);
     }
@@ -148,22 +159,27 @@ export class FlightContractService {
     );
     const receipt = await tx.wait();
 
-    const paid = receipt.logs.some((log) => {
-      try {
-        return contract.interface.parseLog(log)?.name === "PagamentoRealizado";
-      } catch (_error) {
-        return false;
-      }
-    });
+    const eventos = receipt.logs
+      .map((log) => {
+        try {
+          return contract.interface.parseLog(log);
+        } catch (_error) {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    const pago = eventos.some((evento) => evento.name === "PagamentoRealizado");
+    const recusa = eventos.find((evento) => evento.name === "PagamentoNaoRealizado");
 
     return {
       txHash: tx.hash,
-      pago: paid,
-      mensagem: paid
+      pago,
+      // O motivo vem do proprio contrato, nunca de uma reproducao da regra
+      // aqui no backend.
+      mensagem: pago
         ? "Pagamento e quitacao realizados"
-        : Number(atrasoHorasOficial) > 2
-          ? "Companhia sem fundo suficiente"
-          : "Atraso abaixo do limite de indenizacao"
+        : (recusa?.args?.motivo ?? "Atraso registrado sem pagamento")
     };
   }
 }

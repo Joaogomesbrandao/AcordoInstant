@@ -10,21 +10,55 @@ diretamente o endereço do passageiro, emitindo o evento de quitação.
 ## Conteúdo
 
 - `contracts/SeguroParametrico.sol`: único smart contract do projeto.
-  Funções centrais: `cadastrarVoo` e `inscreverPassageiroPelaEmpresa` (chamadas
-  pela companhia, essa última inscreve um passageiro pelo endereço dele),
-  `inscreverNoVoo` (autoinscrição, chamada pelo próprio passageiro) e
-  `registrarAtraso` (chamada pelo passageiro), que calcula a multa e paga o
-  passageiro se houver saldo, com `depositarFundo` como função de apoio ao
-  fluxo.
+  Funções centrais: `cadastrarVoo` e `inscreverPassageiroPelaEmpresa`
+  (chamadas pela companhia, essa última inscreve um passageiro pelo endereço
+  dele) e `registrarAtrasoPelaEmpresa`, que calcula a multa sobre o atraso
+  oficial e paga o passageiro se houver saldo, com `depositarFundo` como
+  função de apoio ao fluxo. `inscreverNoVoo` continua disponível para o
+  cenário em que o passageiro tenha carteira própria e queira se inscrever
+  sozinho.
 - `oracle/oracle.js`: componente off-chain de consulta/integração — busca o
   atraso oficial na fonte de dados do voo e o repassa ao backend. Não possui
   privilégios no contrato e não assina nenhuma transação.
+- `hardhat.config.js`, `scripts/deploy.js` e `test/`: compilação, implantação
+  e testes do contrato com Hardhat.
+- `deployments/`: registro das implantações (endereço do contrato, rede,
+  chainId, bloco e hash da transação).
+- `docs/deploy.md`: como compilar, testar e implantar o contrato na rede de
+  testes, com o endereço implantado documentado.
+- `docs/guia-teste-manual.md`: roteiro de teste da interface do zero — de onde
+  vêm os endereços e as chaves, o passo a passo dos dois painéis e as
+  armadilhas conhecidas.
 - `docs/diagrama-arquitetura-base.md`: diagrama de arquitetura (componentes,
   o que fica on-chain e o que fica off-chain).
 - `docs/arquitetura.md`: diagrama de sequência do fluxo da função central.
 - `docs/diagrama-classes.md`: diagrama de classes do contrato — atributos,
   funções e relações.
+- `docs/backend-integracao.md`: rotas do backend e detalhes da integração
+  on-chain.
 - `frontend/`: interface web em React + TypeScript para interagir com o contrato.
+
+## Smart contract e rede de testes
+
+| Item | Valor |
+|---|---|
+| Ferramentas | Solidity 0.8.24 + Hardhat 3 |
+| Rede | Hardhat Network local (`npx hardhat node`), chainId `31337` |
+| Endereço implantado | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
+| Testes | `npm test` — 21 testes |
+
+```bash
+npm run chain          # 1. sobe a rede de testes local (deixe rodando)
+npm run compile        # 2. compila o contrato
+npm test               # 3. roda os testes
+npm run deploy:local   # 4. implanta e imprime o endereço
+npm run smoke:onchain  # 5. fluxo ponta a ponta contra o contrato implantado
+```
+
+O passo a passo completo, incluindo o deploy opcional na Sepolia, está em
+[`docs/deploy.md`](docs/deploy.md). Para testar a aplicação pela interface —
+de onde vêm os endereços do passageiro e da companhia até conferir o pagamento
+on-chain —, siga [`docs/guia-teste-manual.md`](docs/guia-teste-manual.md).
 
 ## Fluxo do Oracle (consulta off-chain)
 
@@ -39,6 +73,11 @@ Oracle acontece fora da blockchain.
 
 ### Rodando o sistema integrado
 
+0. Antes de tudo, suba a rede de testes e implante o contrato (veja
+   [`docs/deploy.md`](docs/deploy.md)): `npm run chain` em um terminal e
+   `npm run deploy:local` em outro. Sem o contrato implantado e sem os `.env`
+   configurados, a interface abre normalmente, mas as ações da companhia
+   respondem `503` e as consultas do passageiro falham.
 1. Na raiz do projeto, instale as dependências do backend:
    `npm install`
 2. Instale as dependências do frontend:
@@ -90,26 +129,40 @@ informado no cadastro é usado somente como beneficiário do pagamento.
    `registrarAtrasoPelaEmpresa` no contrato.
 5. O contrato valida a companhia, a inscrição, o limite e o saldo; depois
    transfere o valor diretamente para a carteira do passageiro e emite
-   `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`.
+   `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`. Quando não há
+   direito ao pagamento (atraso dentro do limite ou fundo insuficiente), emite
+   `AtrasoRegistrado` e `PagamentoNaoRealizado` com o motivo — é dele que sai a
+   mensagem exibida na interface.
 
-A função original `registrarAtraso` continua disponível para um futuro cenário
-em que o passageiro tenha carteira e assine por conta própria.
+Não existe função pública em que o próprio passageiro informe o atraso oficial:
+ela permitiria a qualquer endereço inscrito declarar um atraso inventado e
+sacar o fundo da companhia. O atraso oficial só entra no contrato pela
+transação assinada pela companhia, com o valor relido do Oracle na hora do
+registro.
 
 #### Configuração da rede
 
-Crie um `.env` na raiz, sem versionar a chave privada:
+Crie um `.env` na raiz a partir de `.env.example`, sem versionar a chave
+privada:
 
 ```env
 RPC_URL=http://127.0.0.1:8545
 CHAIN_ID=31337
-CONTRACT_ADDRESS=0x...
+CONTRACT_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3
 OPERATOR_PRIVATE_KEY=0x...
 ```
 
-Compile e implante `contracts/SeguroParametrico.sol`, configure o endereço
-retornado em `CONTRACT_ADDRESS` e garanta que a conta da chave tenha saldo
-nativo para gás. O backend assina somente pela companhia; ele não controla
-carteiras de passageiros.
+O `CONTRACT_ADDRESS` é o endereço impresso por `npm run deploy:local` (também
+gravado em `deployments/localhost.json`). Na rede local, use como
+`OPERATOR_PRIVATE_KEY` a chave da **Account #0** impressa por `npm run chain`
+— ela representa a companhia aérea e já tem saldo para gás. O backend assina
+somente pela companhia; ele não controla carteiras de passageiros.
+
+Em `frontend/.env`, configure `VITE_RPC_URL` e `VITE_CONTRACT_ADDRESS` com os
+mesmos valores (são usados apenas nas leituras diretas do contrato).
+
+Para conferir que os ABIs mantidos à mão continuam batendo com o contrato
+compilado, rode `npm run check:abi`.
 
 ## Demonstração no Remix
 
@@ -121,15 +174,15 @@ carteiras de passageiros.
 4. O construtor não recebe argumentos: com qualquer conta selecionada, clique em **Deploy**.
 5. **Depósito do escrow:** com a **Conta 1** (Companhia) selecionada, coloque `1` no campo **Value** (unidade `Ether`) e chame `depositarFundo`.
 6. **Cadastro do voo:** ainda com a **Conta 1**, coloque **Value = 0** (importante!) e chame `cadastrarVoo(vooId, horarioPartida, horarioChegada)` — os horários são timestamps Unix (segundos) e o contrato usa `msg.sender` (a Conta 1) como endereço da empresa automaticamente.
-7. **Inscrição do passageiro:** troque para a **Conta 2** (Passageiro). Com **Value = 0**, chame `inscreverNoVoo(vooId)` para se vincular ao voo cadastrado. Alternativa: a própria companhia (**Conta 1**) pode inscrever o passageiro em seu lugar chamando `inscreverPassageiroPelaEmpresa(vooId, enderecoDaConta2)` — é o que a interface web faz, já que o passageiro não assina transações por lá.
-8. **Registro do atraso e pagamento automático:** ainda com a **Conta 2**, chame `registrarAtraso(vooId, atrasoHorasInformado, atrasoHorasOficial)` — use um valor de `atrasoHorasOficial` `> 2` para disparar o pagamento (`atrasoHorasInformado` é livre, fica apenas registrado). Confira no console os eventos `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`.
+7. **Inscrição do passageiro:** ainda com a **Conta 1** (Companhia), chame `inscreverPassageiroPelaEmpresa(vooId, enderecoDaConta2)` — é o que a interface web faz, já que o passageiro não assina transações por lá. Alternativa: trocando para a **Conta 2**, o próprio passageiro pode se inscrever com `inscreverNoVoo(vooId)`.
+8. **Registro do atraso e pagamento automático:** com a **Conta 1** (só a companhia dona do voo pode chamar), execute `registrarAtrasoPelaEmpresa(vooId, enderecoDaConta2, atrasoHorasInformado, atrasoHorasOficial)` — use um valor de `atrasoHorasOficial` `> 2` para disparar o pagamento (`atrasoHorasInformado` é livre, fica apenas registrado). Confira no console os eventos `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`. Com `atrasoHorasOficial <= 2`, ou sem fundo suficiente, aparece `PagamentoNaoRealizado` com o motivo.
 9. **Conferir o estado:**
    - `consultarSaldo(enderecoDaCompanhia)` → saldo do escrow da companhia, em wei (ex: `980000000000000000` = `0,98 ETH`).
    - `consultarVoo(vooId)` → mostra o voo, incluindo `totalPassageiros`.
-   - `consultarInscricao(vooId, enderecoDoPassageiro)` → mostra `pago: true` para a Conta 2.
+   - `consultarInscricao(vooId, enderecoDoPassageiro)` → mostra `registrado: true` e `pago: true` para a Conta 2.
    - Saldo da carteira do passageiro (Conta 2) aumenta em `0,01 ETH` — visível no dropdown **Account**.
 > ⚠️ **Atenção ao campo Value:** ele só deve ter valor diferente de zero na chamada de `depositarFundo` (a única função `payable`). Nas demais funções, deixe **Value = 0**, senão a transação reverte.
-> ⚠️ **Atenção à conta selecionada:** `cadastrarVoo` deve ser chamada pela conta da companhia; `inscreverNoVoo` e `registrarAtraso` pela conta do passageiro — o contrato usa `msg.sender` para validar isso e reverte caso contrário.
+> ⚠️ **Atenção à conta selecionada:** `cadastrarVoo`, `inscreverPassageiroPelaEmpresa` e `registrarAtrasoPelaEmpresa` devem ser chamadas pela conta da companhia; `inscreverNoVoo`, pela conta do passageiro — o contrato usa `msg.sender` para validar isso e reverte caso contrário.
 
 ## Regra paramétrica atual
 

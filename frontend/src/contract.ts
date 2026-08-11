@@ -56,10 +56,11 @@ export const CONTRACT_ABI = [
   {
     "inputs": [
       { "internalType": "uint256", "name": "vooId", "type": "uint256" },
+      { "internalType": "address", "name": "passageiro", "type": "address" },
       { "internalType": "uint256", "name": "atrasoHorasInformado", "type": "uint256" },
       { "internalType": "uint256", "name": "atrasoHorasOficial", "type": "uint256" }
     ],
-    "name": "registrarAtraso",
+    "name": "registrarAtrasoPelaEmpresa",
     "outputs": [
       { "internalType": "bool", "name": "pagamentoEfetuado", "type": "bool" },
       { "internalType": "string", "name": "mensagem", "type": "string" }
@@ -120,7 +121,8 @@ export const CONTRACT_ABI = [
           { "internalType": "bool", "name": "inscrito", "type": "bool" },
           { "internalType": "uint256", "name": "atrasoHorasInformado", "type": "uint256" },
           { "internalType": "uint256", "name": "atrasoHorasOficial", "type": "uint256" },
-          { "internalType": "bool", "name": "pago", "type": "bool" }
+          { "internalType": "bool", "name": "pago", "type": "bool" },
+          { "internalType": "bool", "name": "registrado", "type": "bool" }
         ],
         "internalType": "struct SeguroParametrico.Inscricao",
         "name": "",
@@ -215,6 +217,16 @@ export const CONTRACT_ABI = [
       { "indexed": false, "internalType": "uint256", "name": "instante", "type": "uint256" }
     ],
     "name": "QuitacaoEmitida",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "vooId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "passageiro", "type": "address" },
+      { "indexed": false, "internalType": "string", "name": "motivo", "type": "string" }
+    ],
+    "name": "PagamentoNaoRealizado",
     "type": "event"
   },
   {

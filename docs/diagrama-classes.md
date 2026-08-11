@@ -31,7 +31,10 @@ classDiagram
         +depositarFundo() payable
         +cadastrarVoo(uint256 vooId, uint256 horarioPartida, uint256 horarioChegada)
         +inscreverNoVoo(uint256 vooId)
-        +registrarAtraso(uint256 vooId, uint256 atrasoHorasInformado, uint256 atrasoHorasOficial) bool pagamentoEfetuado, string mensagem
+        +inscreverPassageiroPelaEmpresa(uint256 vooId, address passageiro)
+        +registrarAtrasoPelaEmpresa(uint256 vooId, address passageiro, uint256 atrasoHorasInformado, uint256 atrasoHorasOficial) bool pagamentoEfetuado, string mensagem
+        -_inscrever(uint256 vooId, address passageiro)
+        -_registrarAtraso(uint256 vooId, address passageiro, uint256 atrasoHorasInformado, uint256 atrasoHorasOficial) bool, string
         +calcularMulta(uint256 atrasoHoras) uint256
         +resgatarFundo(uint256 valor)
         +consultarSaldo(address empresa) uint256
@@ -56,12 +59,13 @@ classDiagram
         +uint256 atrasoHorasInformado
         +uint256 atrasoHorasOficial
         +bool pago
+        +bool registrado
     }
 
     SeguroParametrico "1" *-- "0..*" Voo : armazena em voos
     SeguroParametrico "1" *-- "0..*" Inscricao : armazena em inscricoes
 
-    note for SeguroParametrico "cadastrarVoo usa msg.sender como empresa; inscreverNoVoo e registrarAtraso usam msg.sender como o proprio passageiro. Cada voo pode ter varios passageiros inscritos, mas cada Inscricao e paga de forma independente. O Oracle nao faz parte da estrutura interna do contrato, pois e um componente off-chain sem privilegios aqui."
+    note for SeguroParametrico "cadastrarVoo usa msg.sender como empresa. Como o passageiro nao possui chave privada, a companhia dona do voo e quem assina a inscricao e o registro de atraso; o endereco do passageiro entra por parametro e e usado como beneficiario. Cada voo pode ter varios passageiros inscritos, mas cada Inscricao e paga de forma independente. O Oracle nao faz parte da estrutura interna do contrato, pois e um componente off-chain sem privilegios aqui."
 ```
 
 `$` marca `LIMIAR_ATRASO_HORAS` e `VALOR_MULTA` como membros `constant`, ou
@@ -79,7 +83,17 @@ declaração Solidity (`constant`).
 | `voos` | `mapping(uint256 => Voo)` | `private` | Registro de cada voo pelo seu ID. |
 | `inscricoes` | `mapping(uint256 => mapping(address => Inscricao))` | `private` | Estado de cada passageiro dentro de um voo. |
 | `voosPorEmpresa` | `mapping(address => uint256[])` | `private` | Índice reverso: voos cadastrados por cada companhia. |
-| `voosPorPassageiro` | `mapping(address => uint256[])` | `private` | Índice reverso: voos em que cada passageiro se inscreveu. |
+| `voosPorPassageiro` | `mapping(address => uint256[])` | `private` | Índice reverso: voos em que cada passageiro está inscrito. |
+
+### Campos da `Inscricao`
+
+| Campo | Papel |
+|---|---|
+| `inscrito` | O passageiro faz parte deste voo. |
+| `atrasoHorasInformado` | O que o passageiro digitou na interface; fica só como registro. |
+| `atrasoHorasOficial` | O que o Oracle apurou; é o único valor usado no cálculo. |
+| `pago` | A indenização já foi transferida para este passageiro. |
+| `registrado` | A solicitação já foi feita, mesmo que sem direito a pagamento. É o que permite à interface distinguir "ainda não solicitou" de "solicitou e não tinha direito". |
 
 ## Funções
 
@@ -87,8 +101,9 @@ declaração Solidity (`constant`).
 |---|---|---|
 | `depositarFundo()` | Companhia | Soma `msg.value` ao saldo da companhia em `fundosEmpresas`. |
 | `cadastrarVoo(vooId, horarioPartida, horarioChegada)` | Companhia | Cria a entrada `voos[vooId]` e a adiciona a `voosPorEmpresa[msg.sender]`. |
-| `inscreverNoVoo(vooId)` | Passageiro | Cria `inscricoes[vooId][msg.sender]`, incrementa `totalPassageiros` e adiciona o voo a `voosPorPassageiro[msg.sender]`. |
-| `registrarAtraso(vooId, atrasoHorasInformado, atrasoHorasOficial)` | Passageiro | Atualiza a `Inscricao` do próprio `msg.sender`; se a multa (calculada sobre `atrasoHorasOficial`) for devida e houver saldo, debita `fundosEmpresas[empresa]`, marca `pago = true` e transfere ETH a esse passageiro. `atrasoHorasInformado` fica apenas registrado, sem efeito no cálculo. |
+| `inscreverNoVoo(vooId)` | Passageiro (autoinscrição) | Cria `inscricoes[vooId][msg.sender]`, incrementa `totalPassageiros` e adiciona o voo a `voosPorPassageiro[msg.sender]`. Não é usada pela interface atual, em que o passageiro não assina transações. |
+| `inscreverPassageiroPelaEmpresa(vooId, passageiro)` | Companhia dona do voo | Mesmo efeito de `inscreverNoVoo`, mas para o endereço informado. É o caminho usado pela interface. |
+| `registrarAtrasoPelaEmpresa(vooId, passageiro, atrasoHorasInformado, atrasoHorasOficial)` | Companhia dona do voo | Atualiza a `Inscricao` do passageiro e marca `registrado = true`; se a multa (calculada sobre `atrasoHorasOficial`) for devida e houver saldo, debita `fundosEmpresas[empresa]`, marca `pago = true` e transfere ETH ao passageiro. `atrasoHorasInformado` fica apenas registrado, sem efeito no cálculo. |
 | `calcularMulta(atrasoHoras)` | Qualquer um (`pure`) | Não altera estado; retorna `VALOR_MULTA` ou `0`. |
 | `resgatarFundo(valor)` | Companhia | Reduz `fundosEmpresas[msg.sender]` e devolve ETH a ela. |
 | `consultarSaldo(empresa)` | Qualquer um (`view`) | Leitura de `fundosEmpresas`. |
@@ -96,6 +111,11 @@ declaração Solidity (`constant`).
 | `consultarInscricao(vooId, passageiro)` | Qualquer um (`view`) | Leitura de `inscricoes`. |
 | `listarVoosDaEmpresa(empresa)` | Qualquer um (`view`) | Leitura de `voosPorEmpresa`. |
 | `listarVoosDoPassageiro(passageiro)` | Qualquer um (`view`) | Leitura de `voosPorPassageiro`. |
+
+Não existe função pública em que o **beneficiário** informe o próprio atraso
+oficial: isso permitiria a qualquer endereço inscrito declarar um atraso
+arbitrário e sacar o fundo da companhia. O atraso oficial só entra no contrato
+pela transação assinada pela companhia, com o valor lido do Oracle.
 
 ## Relação entre as classes
 
@@ -111,10 +131,17 @@ dos demais inscritos no mesmo voo.
 - `FundoDepositado`: comprova a entrada de garantia da companhia.
 - `VooCadastrado`: registra o cadastro do voo pela companhia, com seus horários.
 - `PassageiroInscrito`: registra a autoinscrição de um passageiro em um voo.
-- `AtrasoRegistrado`: registra o atraso informado e o atraso oficial
-  confirmados pelo passageiro na transação on-chain.
+- `PassageiroInscritoPelaEmpresa`: registra a inscrição feita pela companhia
+  em nome do passageiro.
+- `AtrasoRegistrado`: registra o atraso informado e o atraso oficial usados na
+  solicitação; o endereço indexado é sempre o do **passageiro beneficiário**,
+  não o de quem assinou a transação.
 - `PagamentoRealizado`: registra a transferência ao passageiro.
 - `QuitacaoEmitida`: produz a evidência auditável da quitação.
+- `PagamentoNaoRealizado`: registra o motivo de uma solicitação não ter gerado
+  pagamento (atraso abaixo do limite ou companhia sem fundo). É a partir dele
+  que o backend informa o motivo exato ao passageiro, já que o valor de
+  retorno da função não é legível depois que a transação é minerada.
 - `FundoResgatado`: dá transparência ao resgate de saldo pela companhia.
 
 O contrato aplica *checks-effects-interactions*: reduz o saldo e marca a

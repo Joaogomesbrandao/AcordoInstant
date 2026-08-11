@@ -1,5 +1,5 @@
 %% Diagrama de arquitetura no estilo do arquiteturaBase.jpeg,
-%% atualizado com os componentes e funções em desenvolvimento no AcordoInstant.
+%% atualizado com os componentes e funcoes implementados no AcordoInstant.
 flowchart TB
     Passageiro1("Passageiro")
     Companhia("Companhia aérea")
@@ -8,7 +8,7 @@ flowchart TB
     subgraph OFF["Off-chain"]
         direction LR
         Frontend("Frontend<br/>React - interface<br/>(passageiro e companhia)")
-        Backend("Backend<br/>Node.js - API")
+        Backend("Backend<br/>Node.js - API<br/>carteira única da companhia")
         Oracle("Oracle<br/>Consulta a fonte oficial e repassa<br/>o atraso ao backend (sem privilégios on-chain)")
         Banco("Banco mockado<br/>Fonte oficial de dados de voos")
         Frontend --> Backend
@@ -16,15 +16,15 @@ flowchart TB
         Oracle --> Banco
     end
 
-    subgraph ON["On-chain (blockchain)"]
+    subgraph ON["On-chain (rede de testes)"]
         direction LR
-        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · inscreverNoVoo<br/>registrarAtraso · calcularMulta · resgatarFundo · consultas")
+        Seguro("SeguroParametrico.sol<br/>depositarFundo · cadastrarVoo · inscreverPassageiroPelaEmpresa<br/>registrarAtrasoPelaEmpresa · calcularMulta · resgatarFundo · consultas")
     end
 
     Passageiro1 --> Frontend
     Companhia --> Frontend
-    Companhia -->|depositarFundo, cadastrarVoo| Seguro
-    Passageiro1 -->|inscreverNoVoo, registrarAtraso| Seguro
+    Backend -->|"transações assinadas com a<br/>carteira da companhia"| Seguro
+    Frontend -.->|"leituras diretas via RPC<br/>(consultarVoo, consultarInscricao,<br/>listarVoosDoPassageiro, calcularMulta)"| Seguro
     Seguro -->|PagamentoRealizado + QuitacaoEmitida| Passageiro2
 
     classDef offchain fill:#e6e6fa,stroke:#8a7fc4,color:#3d3466;

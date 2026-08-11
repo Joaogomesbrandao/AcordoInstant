@@ -10,11 +10,31 @@
   "passengers": {
     "1": {
       "id": 1,
-      "name": "S",
-      "walletAddress": "0x2222222222222222222222222222222222222222"
+      "name": "Maria",
+      "walletAddress": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
     }
   },
   "policies": {},
-  "flightStatusByCode": {},
-  "processingLogs": []
+  "flightStatusByCode": {
+    "1234": {
+      "flightNumber": "1234",
+      "status": "LANDED",
+      "delayMinutes": 240,
+      "actualDepartureAt": null,
+      "actualArrivalAt": null,
+      "sourceName": "oracle-manual",
+      "sourceReference": null,
+      "notes": null,
+      "reportedAt": "2026-08-11T01:29:37.375Z",
+      "proofHash": "0x5fee7a474cc9bd9fb24343dc2f69f81bda8f5690004a0b15ef80c118524a25d5"
+    }
+  },
+  "processingLogs": [
+    {
+      "type": "flight_status_upserted",
+      "flightNumber": "1234",
+      "reportedAt": "2026-08-11T01:29:37.375Z",
+      "proofHash": "0x5fee7a474cc9bd9fb24343dc2f69f81bda8f5690004a0b15ef80c118524a25d5"
+    }
+  ]
 }

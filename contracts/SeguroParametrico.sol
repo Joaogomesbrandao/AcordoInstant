@@ -7,13 +7,20 @@ pragma solidity ^0.8.24;
  * @dev O Oracle (oracle/oracle.js) é um serviço off-chain de consulta/integração:
  *      ele apenas busca o atraso oficial junto à fonte de dados e o repassa ao
  *      restante do sistema, sem privilégios especiais neste contrato e sem
- *      assinar transações em nome de terceiros. As chamadas on-chain são feitas
- *      diretamente pelas carteiras dos próprios atores responsáveis: a
- *      companhia aérea assina `cadastrarVoo` e pode operar o fluxo em nome do
- *      passageiro. Cada voo pode ter vários
- *      passageiros inscritos, mas cada um só recebe indenização quando ele
- *      próprio solicita, com base no atraso oficial confirmado. Os valores
- *      são denominados na moeda nativa da rede (ETH em redes Ethereum).
+ *      assinar transações em nome de terceiros.
+ *
+ *      Neste protótipo o passageiro não possui chave privada: seu endereço é
+ *      usado apenas como beneficiário do pagamento. Por isso a companhia
+ *      aérea, dona do voo, é a única parte que assina transações que movem
+ *      dinheiro (`depositarFundo`, `cadastrarVoo`,
+ *      `inscreverPassageiroPelaEmpresa`, `registrarAtrasoPelaEmpresa` e
+ *      `resgatarFundo`). O atraso oficial que entra no cálculo é sempre o
+ *      valor que o backend leu do Oracle imediatamente antes de assinar — o
+ *      contrato não aceita esse número vindo do próprio beneficiário.
+ *
+ *      Cada voo pode ter vários passageiros inscritos, e cada inscrição é
+ *      resolvida de forma independente das demais. Os valores são
+ *      denominados na moeda nativa da rede (ETH em redes Ethereum).
  */
 contract SeguroParametrico {
     uint256 public constant LIMIAR_ATRASO_HORAS = 2;
@@ -38,6 +45,11 @@ contract SeguroParametrico {
         uint256 atrasoHorasInformado;
         uint256 atrasoHorasOficial;
         bool pago;
+        // Marca que a indenizacao ja foi solicitada para esta inscricao,
+        // mesmo quando o atraso apurado foi zero e nenhum pagamento ocorreu.
+        // Sem esse campo a interface nao consegue distinguir "ainda nao
+        // solicitou" de "solicitou e nao tinha direito".
+        bool registrado;
     }
 
     event FundoDepositado(address indexed empresa, uint256 valor, uint256 saldoAtual);
@@ -70,6 +82,17 @@ contract SeguroParametrico {
         address indexed passageiro,
         uint256 valor,
         uint256 instante
+    );
+    /**
+     * @notice Registra por que uma solicitação não gerou pagamento.
+     * @dev O valor de retorno de `registrarAtrasoPelaEmpresa` não é legível
+     *      fora da EVM depois que a transação é minerada; este evento é o que
+     *      permite ao backend informar o motivo exato ao passageiro.
+     */
+    event PagamentoNaoRealizado(
+        uint256 indexed vooId,
+        address indexed passageiro,
+        string motivo
     );
     event FundoResgatado(address indexed empresa, uint256 valor, uint256 saldoRestante);
 
@@ -153,7 +176,8 @@ contract SeguroParametrico {
             inscrito: true,
             atrasoHorasInformado: 0,
             atrasoHorasOficial: 0,
-            pago: false
+            pago: false,
+            registrado: false
         });
 
         voo.totalPassageiros += 1;
@@ -161,32 +185,23 @@ contract SeguroParametrico {
     }
 
     /**
-     * @notice O passageiro registra o atraso do voo em que está inscrito e
-     *         tenta quitar automaticamente a sua indenização.
-     * @dev `atrasoHorasInformado` é o valor que o próprio passageiro digitou
-     *      (guardado apenas como registro, sem efeito no cálculo). O
-     *      pagamento é sempre calculado a partir de `atrasoHorasOficial`, o
-     *      valor que o Oracle apurou na fonte de dados e que o passageiro
-     *      confirma ao assinar esta transação.
+     * @notice A companhia registra o atraso de um passageiro inscrito e tenta
+     *         quitar automaticamente a indenização dele.
+     * @dev O passageiro deste protótipo não assina transações: seu endereço é
+     *      usado somente como beneficiário do pagamento, e a companhia dona do
+     *      voo é a única parte autorizada a executar o fluxo.
+     *
+     *      `atrasoHorasInformado` é o valor que o passageiro digitou na
+     *      interface (guardado apenas como registro, sem efeito no cálculo).
+     *      O pagamento é sempre calculado a partir de `atrasoHorasOficial`, o
+     *      valor que o Oracle apurou na fonte oficial e que o backend leu
+     *      imediatamente antes de assinar esta transação.
+     *
+     *      Não existe uma variante em que o próprio beneficiário informe o
+     *      atraso oficial: isso permitiria a qualquer passageiro inscrito
+     *      declarar um atraso arbitrário e sacar o fundo da companhia.
      * @return pagamentoEfetuado Indica se houve transferência ao passageiro.
      * @return mensagem Resultado legível para o backend/interface.
-     */
-    function registrarAtraso(
-        uint256 vooId,
-        uint256 atrasoHorasInformado,
-        uint256 atrasoHorasOficial
-    )
-        external
-        returns (bool pagamentoEfetuado, string memory mensagem)
-    {
-        return _registrarAtraso(vooId, msg.sender, atrasoHorasInformado, atrasoHorasOficial);
-    }
-
-    /**
-     * @notice Permite que a companhia registre o atraso em nome do passageiro.
-     * @dev O passageiro deste prototipo nao assina transacoes: seu endereco e
-     *      usado somente como beneficiario do pagamento. A companhia dona do
-     *      voo continua sendo a unica parte autorizada a executar o fluxo.
      */
     function registrarAtrasoPelaEmpresa(
         uint256 vooId,
@@ -219,14 +234,17 @@ contract SeguroParametrico {
 
         inscricao.atrasoHorasInformado = atrasoHorasInformado;
         inscricao.atrasoHorasOficial = atrasoHorasOficial;
-        emit AtrasoRegistrado(vooId, msg.sender, atrasoHorasInformado, atrasoHorasOficial);
+        inscricao.registrado = true;
+        emit AtrasoRegistrado(vooId, passageiro, atrasoHorasInformado, atrasoHorasOficial);
 
         uint256 multa = calcularMulta(atrasoHorasOficial);
         if (multa == 0) {
+            emit PagamentoNaoRealizado(vooId, passageiro, "Atraso abaixo do limite de indenizacao");
             return (false, "Atraso abaixo do limite de indenizacao");
         }
 
         if (fundosEmpresas[voo.empresa] < multa) {
+            emit PagamentoNaoRealizado(vooId, passageiro, "Companhia sem fundo suficiente");
             return (false, "Companhia sem fundo suficiente");
         }
 

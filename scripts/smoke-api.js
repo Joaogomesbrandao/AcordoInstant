@@ -6,9 +6,16 @@ async function main() {
   const tempFile = path.join(process.cwd(), "data", "store.smoke.json");
   await rm(tempFile, { force: true });
 
+  // Este smoke cobre a camada de apolices da API (store + provider de status),
+  // nao a integracao on-chain: o BlockchainService usado por ela aponta para um
+  // contrato de apolices (criarApolice/registrarStatusOficial) que nao e o
+  // SeguroParametrico.sol implantado. Zerar o contractAddress mantem o servico
+  // em modo "prepared" mesmo com o .env preenchido — o fluxo on-chain de
+  // verdade, o que a interface usa, e coberto por scripts/smoke-onchain.js.
   const { app } = createSystem({
     dataFile: tempFile,
-    port: 3101
+    port: 3101,
+    contractAddress: ""
   });
 
   const server = await new Promise((resolve) => {
