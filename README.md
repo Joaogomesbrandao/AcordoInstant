@@ -2,13 +2,10 @@
 
 Protótipo de seguro paramétrico para atraso de voos: a companhia deposita um
 fundo de garantia no contrato, cadastra o voo (número e horários de partida
-e chegada) e inscreve os passageiros nele pelo nome, tudo com sua própria
-carteira (o próprio passageiro também pode se inscrever por conta própria
-com `inscreverNoVoo`, se preferir). Quando há atraso, o passageiro confere o
-valor oficial (consultado pelo Oracle) e, ao confirmar, registra esse atraso
-no contrato com sua própria carteira. O contrato calcula a indenização e paga
-o passageiro automaticamente quando as condições são satisfeitas, emitindo o
-evento de quitação.
+e chegada) e inscreve os passageiros nele pelo nome, tudo com a carteira da
+companhia operada pelo backend. Quando há atraso, o passageiro confere o valor
+oficial e confirma a solicitação. O contrato calcula a indenização e paga
+diretamente o endereço do passageiro, emitindo o evento de quitação.
 
 ## Conteúdo
 
@@ -34,15 +31,11 @@ evento de quitação.
 O Oracle não participa das transações on-chain. Ele apenas consulta o banco
 mockado (que representa a fonte/API oficial da companhia) e repassa o atraso
 oficial ao backend, que o entrega ao frontend para exibição ao passageiro.
-Somente depois de conferir esse valor o passageiro assina, com a própria
-carteira, a transação
-`registrarAtraso(vooId, atrasoHorasInformado, atrasoHorasOficial)` — o
-segundo argumento é apenas o valor que o próprio passageiro digitou como
-referência (não interfere no pagamento); o terceiro é o valor oficial do
-Oracle, usado no cálculo da indenização. A demonstração
-abaixo, no Remix, cobre apenas a parte on-chain desse fluxo (as transações
-assinadas pela companhia e pelo passageiro); a consulta do atraso oficial
-pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
+Somente depois de conferir esse valor o passageiro confirma a solicitação. O
+backend consulta novamente o Oracle e assina
+`registrarAtrasoPelaEmpresa(vooId, enderecoPassageiro, atrasoHorasInformado, atrasoHorasOficial)`.
+O passageiro não precisa de chave privada. A consulta do atraso oficial pelo
+Oracle acontece fora da blockchain.
 
 ### Rodando o sistema integrado
 
@@ -79,6 +72,44 @@ pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
    `POST /voos/:vooId/consultar` no backend, que devolve o `atrasoHorasOficial`
    já semeado. Se o backend rodar em outro host/porta, aponte o frontend para
    ele com `VITE_API_URL` (só necessário fora do modo `npm run dev`).
+
+### Implementação do backend e integração on-chain
+
+O passageiro não possui chave privada e nunca assina transações. O endereço
+informado no cadastro é usado somente como beneficiário do pagamento.
+
+1. `oracle/oracle.js` grava o status oficial e o atraso em minutos no banco
+   mockado via `POST /api/internal/flight-status`; o registro recebe um
+   `proofHash` SHA-256 para rastreabilidade off-chain.
+2. As rotas `/companhia/*` são assinadas pelo backend usando
+   `OPERATOR_PRIVATE_KEY` para depósito, resgate, cadastro de voo e inscrição.
+3. `POST /voos/:vooId/consultar` lê o status do Oracle e converte minutos para
+   horas inteiras para exibição.
+4. `POST /voos/:vooId/registrar-atraso` consulta novamente o Oracle, ignora
+   qualquer atraso oficial enviado pelo cliente e chama
+   `registrarAtrasoPelaEmpresa` no contrato.
+5. O contrato valida a companhia, a inscrição, o limite e o saldo; depois
+   transfere o valor diretamente para a carteira do passageiro e emite
+   `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`.
+
+A função original `registrarAtraso` continua disponível para um futuro cenário
+em que o passageiro tenha carteira e assine por conta própria.
+
+#### Configuração da rede
+
+Crie um `.env` na raiz, sem versionar a chave privada:
+
+```env
+RPC_URL=http://127.0.0.1:8545
+CHAIN_ID=31337
+CONTRACT_ADDRESS=0x...
+OPERATOR_PRIVATE_KEY=0x...
+```
+
+Compile e implante `contracts/SeguroParametrico.sol`, configure o endereço
+retornado em `CONTRACT_ADDRESS` e garanta que a conta da chave tenha saldo
+nativo para gás. O backend assina somente pela companhia; ele não controla
+carteiras de passageiros.
 
 ## Demonstração no Remix
 
@@ -207,4 +238,3 @@ das decisões técnicas. O processo foi:
    alguma decisão gerada não refletia exatamente o que o grupo pretendia;
 4. modelos diferentes de IA foram utilizados para a produção guiada e compreensão
    do código do contrato em Solidity.
-

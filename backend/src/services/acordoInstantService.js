@@ -65,10 +65,11 @@ function formatLog(type, policyId, details = {}) {
 }
 
 export class AcordoInstantService {
-  constructor({ store, flightStatusProvider, blockchainService }) {
+  constructor({ store, flightStatusProvider, blockchainService, flightContractService }) {
     this.store = store;
     this.flightStatusProvider = flightStatusProvider;
     this.blockchainService = blockchainService;
+    this.flightContractService = flightContractService;
   }
 
   async listCompanies() {
@@ -482,5 +483,22 @@ export class AcordoInstantService {
       reportadoEm: status.reportedAt
     };
   }
-}
 
+  async registrarAtrasoOficialVoo(vooId, passageiroAddress, atrasoHorasInformado) {
+    ensureAddress(passageiroAddress, "passageiroEndereco");
+    const normalizedVooId = ensureString(vooId, "vooId").toUpperCase();
+    const informed = Number(atrasoHorasInformado);
+    if (!Number.isInteger(informed) || informed < 0) {
+      throw httpError("atrasoHorasInformado deve ser um numero inteiro nao negativo");
+    }
+
+    const status = await this.flightStatusProvider.getStatus(normalizedVooId);
+    const official = Math.floor(Number(status.delayMinutes) / 60);
+    return this.flightContractService.registrarAtraso(
+      normalizedVooId,
+      passageiroAddress,
+      informed,
+      official
+    );
+  }
+}

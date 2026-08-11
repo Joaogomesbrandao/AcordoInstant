@@ -51,7 +51,8 @@ export function createSystem(overrides = {}) {
   const service = new AcordoInstantService({
     store,
     flightStatusProvider,
-    blockchainService
+    blockchainService,
+    flightContractService
   });
 
   return {

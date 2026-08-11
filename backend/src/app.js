@@ -173,6 +173,20 @@ export function createApp({ service, blockchainService, flightContractService, c
     }
   );
 
+  app.post(
+    "/voos/:vooId/registrar-atraso",
+    asyncHandler(async (req, res) => {
+      const { passageiroEndereco, atrasoHorasInformado } = req.body ?? {};
+      res.json(
+        await service.registrarAtrasoOficialVoo(
+          req.params.vooId,
+          passageiroEndereco,
+          atrasoHorasInformado
+        )
+      );
+    })
+  );
+
   // Rotas usadas pelo painel da companhia (frontend). A companhia e unica e
   // fixa: todas essas acoes sao assinadas pelo backend com a mesma chave
   // (OPERATOR_PRIVATE_KEY), a interface nunca lida com carteira/assinatura.

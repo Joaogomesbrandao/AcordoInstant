@@ -9,8 +9,8 @@ pragma solidity ^0.8.24;
  *      restante do sistema, sem privilégios especiais neste contrato e sem
  *      assinar transações em nome de terceiros. As chamadas on-chain são feitas
  *      diretamente pelas carteiras dos próprios atores responsáveis: a
- *      companhia aérea assina `cadastrarVoo`; o passageiro assina
- *      `inscreverNoVoo` e `registrarAtraso`. Cada voo pode ter vários
+ *      companhia aérea assina `cadastrarVoo` e pode operar o fluxo em nome do
+ *      passageiro. Cada voo pode ter vários
  *      passageiros inscritos, mas cada um só recebe indenização quando ele
  *      próprio solicita, com base no atraso oficial confirmado. Os valores
  *      são denominados na moeda nativa da rede (ETH em redes Ethereum).
@@ -179,10 +179,41 @@ contract SeguroParametrico {
         external
         returns (bool pagamentoEfetuado, string memory mensagem)
     {
+        return _registrarAtraso(vooId, msg.sender, atrasoHorasInformado, atrasoHorasOficial);
+    }
+
+    /**
+     * @notice Permite que a companhia registre o atraso em nome do passageiro.
+     * @dev O passageiro deste prototipo nao assina transacoes: seu endereco e
+     *      usado somente como beneficiario do pagamento. A companhia dona do
+     *      voo continua sendo a unica parte autorizada a executar o fluxo.
+     */
+    function registrarAtrasoPelaEmpresa(
+        uint256 vooId,
+        address passageiro,
+        uint256 atrasoHorasInformado,
+        uint256 atrasoHorasOficial
+    )
+        external
+        returns (bool pagamentoEfetuado, string memory mensagem)
+    {
+        Voo storage voo = voos[vooId];
+        require(voo.empresa != address(0), "Voo nao cadastrado");
+        require(msg.sender == voo.empresa, "Somente a companhia do voo pode registrar o atraso");
+
+        return _registrarAtraso(vooId, passageiro, atrasoHorasInformado, atrasoHorasOficial);
+    }
+
+    function _registrarAtraso(
+        uint256 vooId,
+        address passageiro,
+        uint256 atrasoHorasInformado,
+        uint256 atrasoHorasOficial
+    ) private returns (bool pagamentoEfetuado, string memory mensagem) {
         Voo storage voo = voos[vooId];
         require(voo.empresa != address(0), "Voo nao cadastrado");
 
-        Inscricao storage inscricao = inscricoes[vooId][msg.sender];
+        Inscricao storage inscricao = inscricoes[vooId][passageiro];
         require(inscricao.inscrito, "Passageiro nao inscrito neste voo");
         require(!inscricao.pago, "Indenizacao ja paga para este passageiro");
 
@@ -203,11 +234,11 @@ contract SeguroParametrico {
         fundosEmpresas[voo.empresa] -= multa;
         inscricao.pago = true;
 
-        (bool sucesso, ) = payable(msg.sender).call{value: multa}("");
+        (bool sucesso, ) = payable(passageiro).call{value: multa}("");
         require(sucesso, "Falha no pagamento");
 
-        emit PagamentoRealizado(vooId, voo.empresa, msg.sender, multa);
-        emit QuitacaoEmitida(vooId, msg.sender, multa, block.timestamp);
+        emit PagamentoRealizado(vooId, voo.empresa, passageiro, multa);
+        emit QuitacaoEmitida(vooId, passageiro, multa, block.timestamp);
 
         return (true, "Pagamento e quitacao realizados");
     }

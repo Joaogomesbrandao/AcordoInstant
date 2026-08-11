@@ -8,6 +8,7 @@ const FLIGHT_CONTRACT_ABI = [
   "function resgatarFundo(uint256 valor)",
   "function cadastrarVoo(uint256 vooId, uint256 horarioPartida, uint256 horarioChegada)",
   "function inscreverPassageiroPelaEmpresa(uint256 vooId, address passageiro)",
+  "function registrarAtrasoPelaEmpresa(uint256 vooId, address passageiro, uint256 atrasoHorasInformado, uint256 atrasoHorasOficial) returns (bool,string)",
   "function consultarSaldo(address empresa) view returns (uint256)",
   "function consultarVoo(uint256 vooId) view returns (tuple(uint256 id, address empresa, uint256 horarioPartida, uint256 horarioChegada, uint256 totalPassageiros))",
   "function listarVoosDaEmpresa(address empresa) view returns (uint256[])"
@@ -136,6 +137,35 @@ export class FlightContractService {
     await tx.wait();
     return { txHash: tx.hash };
   }
+
+  async registrarAtraso(vooId, passageiroEndereco, atrasoHorasInformado, atrasoHorasOficial) {
+    const contract = this.getContract();
+    const tx = await contract.registrarAtrasoPelaEmpresa(
+      parseVooId(vooId),
+      passageiroEndereco,
+      parseHours(atrasoHorasInformado, "atrasoHorasInformado"),
+      parseHours(atrasoHorasOficial, "atrasoHorasOficial")
+    );
+    const receipt = await tx.wait();
+
+    const paid = receipt.logs.some((log) => {
+      try {
+        return contract.interface.parseLog(log)?.name === "PagamentoRealizado";
+      } catch (_error) {
+        return false;
+      }
+    });
+
+    return {
+      txHash: tx.hash,
+      pago: paid,
+      mensagem: paid
+        ? "Pagamento e quitacao realizados"
+        : Number(atrasoHorasOficial) > 2
+          ? "Companhia sem fundo suficiente"
+          : "Atraso abaixo do limite de indenizacao"
+    };
+  }
 }
 
 function parseVooId(value) {
@@ -146,6 +176,14 @@ function ensurePositiveInteger(value, fieldName) {
   const normalized = String(value ?? "").trim();
   if (!/^\d+$/.test(normalized) || BigInt(normalized) <= 0n) {
     throw httpError(`${fieldName} deve ser um numero inteiro positivo`);
+  }
+  return BigInt(normalized);
+}
+
+function parseHours(value, fieldName) {
+  const normalized = String(value ?? "").trim();
+  if (!/^\d+$/.test(normalized)) {
+    throw httpError(`${fieldName} deve ser um numero inteiro nao negativo`);
   }
   return BigInt(normalized);
 }
