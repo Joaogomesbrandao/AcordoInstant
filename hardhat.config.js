@@ -4,20 +4,23 @@ import dotenv from "dotenv";
 dotenv.config();
 
 /**
- * Configuracao do Hardhat para o AcordoInstant.
+ * Configuração do Hardhat para o AcordoInstant.
  *
- * Redes disponiveis:
- * - `hardhat`  : rede simulada em memoria, usada por `npx hardhat test`;
- * - `localhost`: no local levantado com `npx hardhat node` (127.0.0.1:8545),
- *                que e a rede de testes usada pelo backend, pelo oracle e
- *                pelo frontend nas demonstracoes;
- * - `sepolia`  : testnet publica; so funciona se SEPOLIA_RPC_URL e
- *                SEPOLIA_PRIVATE_KEY estiverem definidos no .env.
+ * A rede é local, como pede o escopo do protótipo:
+ *
+ * - `hardhat`   : rede simulada em memória, usada por `npm test`;
+ * - `localhost` : nó levantado com `npm run chain` (127.0.0.1:8545), onde o
+ *                 contrato é implantado e onde backend, oráculo e frontend
+ *                 trabalham.
+ *
+ * As contas vêm do mnemônico padrão do Hardhat, o mesmo que
+ * `deploy/contas.js` usa para derivar os papéis (companhia, oráculo, TJPB e
+ * plataforma) e as cinco carteiras de teste. É por isso que ninguém precisa
+ * copiar chave privada para nenhum arquivo.
+ *
+ * A proposta prevê a Rede Blockchain Brasil (permissionada) em produção; o
+ * que muda lá é o endpoint e a governança dos nós, não o contrato.
  */
-const sepoliaAccounts = process.env.SEPOLIA_PRIVATE_KEY
-  ? [process.env.SEPOLIA_PRIVATE_KEY]
-  : [];
-
 export default {
   plugins: [hardhatToolboxMochaEthers],
   solidity: {
@@ -39,12 +42,6 @@ export default {
       type: "http",
       chainType: "l1",
       url: process.env.RPC_URL || "http://127.0.0.1:8545"
-    },
-    sepolia: {
-      type: "http",
-      chainType: "l1",
-      url: process.env.SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
-      accounts: sepoliaAccounts
     }
   }
 };

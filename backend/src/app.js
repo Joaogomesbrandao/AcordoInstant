@@ -1,23 +1,25 @@
+import path from "node:path";
 import express from "express";
 
-function asyncHandler(handler) {
-  return async (req, res, next) => {
-    try {
-      await handler(req, res, next);
-    } catch (error) {
-      next(error);
-    }
-  };
-}
+import { listarVoosComAtraso } from "../../oracle/voos.mock.js";
+import { ErroApi } from "./erros.js";
 
-export function createApp({ service, blockchainService, flightContractService, config }) {
+/**
+ * API do AcordoInstant.
+ *
+ * Uma rota por ação de cada perfil, e nada além disso. O frontend não fala
+ * com a blockchain: quem assina é sempre o backend, com a carteira do papel
+ * correspondente, e quem lê a cadeia também é o backend — assim existe um
+ * único lugar onde o ABI e os endereços importam.
+ */
+export function criarApp({ config, cliente, companhia, tribunal, oraculo, observador, acesso }) {
   const app = express();
 
-  // Em desenvolvimento, o frontend costuma rodar no Vite (porta 3000) e o
-  // backend na 3001. Em produção/local build, o backend também pode servir o
-  // `frontend/dist`, então o CORS continua aqui apenas para manter ambos os
-  // modos funcionando sem configuração extra.
-  app.use((req, res, next) => {
+  app.use(express.json());
+
+  // O Vite (porta 3000) e o backend (3001) são origens diferentes em
+  // desenvolvimento; em produção o mesmo processo serve os dois.
+  app.use((req, res, proximo) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type");
@@ -27,262 +29,139 @@ export function createApp({ service, blockchainService, flightContractService, c
       return;
     }
 
-    next();
+    proximo();
   });
 
-  app.use(express.json());
-
-  app.get("/health", (_req, res) => {
-    res.json({
-      status: "ok",
-      blockchainEnabled: blockchainService.isConfigured(),
-      providerMode: config.providerMode
-    });
-  });
-
-  app.get(
-    "/api/companies",
-    asyncHandler(async (_req, res) => {
-      res.json(await service.listCompanies());
-    })
-  );
-
-  app.post(
-    "/api/companies",
-    asyncHandler(async (req, res) => {
-      const company = await service.createCompany(req.body);
-      res.status(201).json(company);
-    })
-  );
-
-  app.get(
-    "/api/passengers",
-    asyncHandler(async (_req, res) => {
-      res.json(await service.listPassengers());
-    })
-  );
-
-  app.post(
-    "/api/passengers",
-    asyncHandler(async (req, res) => {
-      const passenger = await service.createPassenger(req.body);
-      res.status(201).json(passenger);
-    })
-  );
-
-  app.get(
-    "/api/policies",
-    asyncHandler(async (_req, res) => {
-      res.json(await service.listPolicies());
-    })
-  );
-
-  app.get(
-    "/api/policies/:policyId",
-    asyncHandler(async (req, res) => {
-      res.json(await service.getPolicy(req.params.policyId));
-    })
-  );
-
-  app.post(
-    "/api/policies",
-    asyncHandler(async (req, res) => {
-      const policy = await service.createPolicy(req.body);
-      res.status(201).json(policy);
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/accept",
-    asyncHandler(async (req, res) => {
-      res.json(await service.acceptPolicy(req.params.policyId, req.body));
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/cancel",
-    asyncHandler(async (req, res) => {
-      res.json(await service.cancelPolicy(req.params.policyId, req.body));
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/blockchain/register",
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.syncPolicyCreation(req.params.policyId, req.body ?? {})
-      );
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/blockchain/accept",
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.syncPolicyAcceptance(req.params.policyId, req.body ?? {})
-      );
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/process-settlement",
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.processSettlement(req.params.policyId, req.body ?? {})
-      );
-    })
-  );
-
-  app.get(
-    "/api/flight-status/:flightNumber",
-    asyncHandler(async (req, res) => {
-      res.json(await service.getFlightStatus(req.params.flightNumber));
-    })
-  );
-
-  app.post(
-    "/api/internal/flight-status",
-    asyncHandler(async (req, res) => {
-      const update = await service.upsertFlightStatus(req.body);
-      res.status(201).json(update);
-    })
-  );
-
-  app.post(
-    "/api/blockchain/escrow/deposit",
-    asyncHandler(async (req, res) => {
-      res.json(await blockchainService.depositEscrow(req.body ?? {}));
-    })
-  );
-
-  // Consultada pelo painel do passageiro (frontend) antes de assinar
-  // registrarAtraso no contrato. O formato de erro ({ erro }) segue o que o
-  // frontend ja espera nessa chamada especifica; as demais rotas continuam
-  // usando { error }, sem alterar o contrato existente da API.
-  app.post(
-    "/voos/:vooId/consultar",
-    async (req, res) => {
+  /** Executa a rota e, depois de uma escrita, força o log da movimentação. */
+  const rota =
+    (manipulador, { registrar = false } = {}) =>
+    async (req, res, proximo) => {
       try {
-        const { passageiro } = req.body ?? {};
-        const resultado = await service.consultarAtrasoOficialVoo(req.params.vooId, passageiro);
+        const resultado = await manipulador(req, res);
+        if (registrar) await observador.varrer();
         res.json(resultado);
-      } catch (error) {
-        const statusCode = error.statusCode ?? 500;
-        res.status(statusCode).json({ erro: error.message ?? "Erro interno" });
+      } catch (erro) {
+        proximo(erro);
       }
-    }
-  );
+    };
 
-  app.post(
-    "/voos/:vooId/registrar-atraso",
-    asyncHandler(async (req, res) => {
-      const { passageiroEndereco, atrasoHorasInformado } = req.body ?? {};
-      res.json(
-        await service.registrarAtrasoOficialVoo(
-          req.params.vooId,
-          passageiroEndereco,
-          atrasoHorasInformado
-        )
-      );
-    })
-  );
-
-  // Rotas usadas pelo painel da companhia (frontend). A companhia e unica e
-  // fixa: todas essas acoes sao assinadas pelo backend com a mesma chave
-  // (OPERATOR_PRIVATE_KEY), a interface nunca lida com carteira/assinatura.
-  app.get(
-    "/companhia/saldo",
-    asyncHandler(async (_req, res) => {
-      res.json(await flightContractService.consultarSaldo());
-    })
-  );
+  // --- Estado do sistema ----------------------------------------------------
 
   app.get(
-    "/companhia/voos",
-    asyncHandler(async (_req, res) => {
-      res.json(await flightContractService.listarVoos());
-    })
+    "/health",
+    rota(async () => ({
+      status: "ok",
+      rede: config.rede,
+      chainId: config.chainId,
+      contrato: acesso.endereco
+    }))
+  );
+
+  app.get("/api/regra", rota(async () => tribunal.painel().then((painel) => painel.regra)));
+
+  /**
+   * Carteiras de teste geradas na implantação da rede.
+   *
+   * Existe para a demonstração: a tela de cadastro do cliente oferece esses
+   * endereços em vez de exigir que alguém copie do terminal. Nenhuma delas
+   * nasce vinculada a um CPF — o vínculo só acontece no cadastro.
+   */
+  app.get(
+    "/api/carteiras-de-teste",
+    rota(async () => config.usuariosDeTeste)
+  );
+
+  // --- Cliente --------------------------------------------------------------
+
+  app.post(
+    "/api/cliente/cadastro",
+    rota((req) => cliente.cadastrar(req.body ?? {}), { registrar: true })
   );
 
   app.post(
-    "/companhia/voos",
-    asyncHandler(async (req, res) => {
-      const { vooId, horarioPartida, horarioChegada } = req.body ?? {};
-      res.status(201).json(
-        await flightContractService.cadastrarVoo(vooId, horarioPartida, horarioChegada)
-      );
-    })
+    "/api/cliente/entrar",
+    rota((req) => cliente.entrar(req.body?.cpf))
+  );
+
+  app.get(
+    "/api/cliente/:cpf/painel",
+    rota((req) => cliente.painel(req.params.cpf))
+  );
+
+  // --- Companhia aérea ------------------------------------------------------
+
+  app.get(
+    "/api/companhia/painel",
+    rota(() => companhia.painel())
+  );
+
+  app.get(
+    "/api/companhia/voos-disponiveis",
+    rota(() => companhia.voosDisponiveis())
   );
 
   app.post(
-    "/companhia/depositar-fundo",
-    asyncHandler(async (req, res) => {
-      const { valorEth } = req.body ?? {};
-      res.json(await flightContractService.depositarFundo(valorEth));
-    })
+    "/api/companhia/voos",
+    rota((req) => companhia.cadastrarVoo(req.body?.codigo), { registrar: true })
   );
 
   app.post(
-    "/companhia/resgatar-fundo",
-    asyncHandler(async (req, res) => {
-      const { valorEth } = req.body ?? {};
-      res.json(await flightContractService.resgatarFundo(valorEth));
-    })
+    "/api/companhia/passageiros",
+    rota((req) => companhia.embarcarPassageiro(req.body ?? {}), { registrar: true })
   );
 
-  // A companhia inscreve um passageiro ja cadastrado (por id, resolvido a
-  // partir do nome escolhido na interface) em um voo dela — o passageiro
-  // nao assina nada, so recebe o deposito caso tenha direito depois.
   app.post(
-    "/companhia/voos/:vooId/inscrever",
-    asyncHandler(async (req, res) => {
-      const { passengerId } = req.body ?? {};
-      const passenger = await service.getPassenger(passengerId);
-      res.json(
-        await flightContractService.inscreverPassageiro(
-          req.params.vooId,
-          passenger.walletAddress
-        )
-      );
-    })
+    "/api/companhia/resgatar",
+    rota((req) => companhia.resgatarGarantias(req.body?.valorWei ?? null), { registrar: true })
   );
 
-  if (config.serveFrontend) {
-    app.use(express.static(config.frontendDistDir));
-    app.use((req, res, next) => {
-      if (req.method !== "GET") {
-        next();
+  // --- TJPB (somente leitura) -----------------------------------------------
+
+  app.get(
+    "/api/tribunal/painel",
+    rota(() => tribunal.painel(observador.catalogo))
+  );
+
+  // --- Oráculo --------------------------------------------------------------
+
+  app.get(
+    "/api/oraculo/voos",
+    rota(async () => listarVoosComAtraso())
+  );
+
+  /**
+   * Dispara uma apuração imediata.
+   *
+   * O oráculo já roda sozinho em intervalo fixo; esta rota existe para a
+   * demonstração não depender do relógio — mesmo assim, quem reporta é a
+   * conta do oráculo, e o horário continua vindo da base externa.
+   */
+  app.post(
+    "/api/oraculo/apurar",
+    rota(async () => ({ apurados: await oraculo.apurarPendentes() }), { registrar: true })
+  );
+
+  // --- Frontend compilado (modo processo único) -----------------------------
+
+  if (config.servirFrontend) {
+    app.use(express.static(config.pastaFrontend));
+    app.use((req, res, proximo) => {
+      if (req.method !== "GET" || req.path.startsWith("/api") || req.path === "/health") {
+        proximo();
         return;
       }
 
-      if (
-        req.path === "/health" ||
-        req.path === "/api" ||
-        req.path.startsWith("/api/") ||
-        req.path === "/voos" ||
-        req.path.startsWith("/voos/") ||
-        req.path === "/companhia" ||
-        req.path.startsWith("/companhia/")
-      ) {
-        next();
-        return;
-      }
-
-      res.sendFile(config.frontendIndexFile);
+      res.sendFile(path.join(config.pastaFrontend, "index.html"));
     });
   }
 
   app.use((req, res) => {
-    res.status(404).json({
-      error: `Rota nao encontrada: ${req.method} ${req.originalUrl}`
-    });
+    res.status(404).json({ erro: `Rota nao encontrada: ${req.method} ${req.originalUrl}` });
   });
 
-  app.use((error, _req, res, _next) => {
-    const statusCode = error.statusCode ?? 500;
-    res.status(statusCode).json({
-      error: error.message ?? "Erro interno"
-    });
+  app.use((erro, _req, res, _proximo) => {
+    const status = erro instanceof ErroApi ? erro.status : (erro.status ?? 500);
+    res.status(status).json({ erro: erro.message ?? "Erro interno" });
   });
 
   return app;

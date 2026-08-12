@@ -1,10 +1,12 @@
-import { createSystem } from "./src/bootstrap.js";
+import { montarSistema } from "./src/bootstrap.js";
 
-const { app, config } = createSystem();
+const { app, config, log } = await montarSistema();
 
-app.listen(config.port, config.host, () => {
-  console.log(
-    `AcordoInstant backend escutando em http://${config.host}:${config.port}`
-  );
+app.listen(config.porta, config.host, () => {
+  log.evento({
+    rotulo: "BACKEND NO AR",
+    cor: "verde",
+    resumo: `http://${config.host}:${config.porta}`,
+    detalhes: [`logs em ${log.destino}`]
+  });
 });
-

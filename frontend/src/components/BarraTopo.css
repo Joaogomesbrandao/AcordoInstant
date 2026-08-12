@@ -1,0 +1,67 @@
+.barra-topo {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.barra-topo-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.85rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.barra-topo-marca {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.barra-topo-nome {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-navy);
+}
+
+.barra-topo-perfil {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+}
+
+.perfil-cliente {
+  background: var(--color-teal-soft);
+  color: var(--color-teal-dark);
+}
+
+.perfil-companhia {
+  background: var(--color-navy-soft);
+  color: var(--color-navy);
+}
+
+.perfil-tribunal {
+  background: var(--color-gold-soft);
+  color: #8a6414;
+}
+
+.barra-topo-acoes {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.barra-topo-identidade {
+  font-size: 0.83rem;
+  color: var(--color-ink-muted);
+}

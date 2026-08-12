@@ -1,293 +1,150 @@
 # AcordoInstant
 
-Protótipo de seguro paramétrico para atraso de voos: a companhia deposita um
-fundo de garantia no contrato, cadastra o voo (número e horários de partida
-e chegada) e inscreve os passageiros nele pelo nome, tudo com a carteira da
-companhia operada pelo backend. Quando há atraso, o passageiro confere o valor
-oficial e confirma a solicitação. O contrato calcula a indenização e paga
-diretamente o endereço do passageiro, emitindo o evento de quitação.
+Seguro paramétrico de atraso de voo em contrato inteligente.
 
-## Conteúdo
+**Tarefa final** — Blockchain, Contratos Inteligentes e Direito, ESMA-PB 2026.
+Proposta em [`Projeto3_AcordoInstant_proposta.pdf`](./Projeto3_AcordoInstant_proposta.pdf).
 
-- `contracts/SeguroParametrico.sol`: único smart contract do projeto.
-  Funções centrais: `cadastrarVoo` e `inscreverPassageiroPelaEmpresa`
-  (chamadas pela companhia, essa última inscreve um passageiro pelo endereço
-  dele) e `registrarAtrasoPelaEmpresa`, que calcula a multa sobre o atraso
-  oficial e paga o passageiro se houver saldo, com `depositarFundo` como
-  função de apoio ao fluxo. `inscreverNoVoo` continua disponível para o
-  cenário em que o passageiro tenha carteira própria e queira se inscrever
-  sozinho.
-- `oracle/oracle.js`: componente off-chain de consulta/integração — busca o
-  atraso oficial na fonte de dados do voo e o repassa ao backend. Não possui
-  privilégios no contrato e não assina nenhuma transação.
-- `hardhat.config.js`, `scripts/deploy.js` e `test/`: compilação, implantação
-  e testes do contrato com Hardhat.
-- `deployments/`: registro das implantações (endereço do contrato, rede,
-  chainId, bloco e hash da transação).
-- `docs/deploy.md`: como compilar, testar e implantar o contrato na rede de
-  testes, com o endereço implantado documentado.
-- `docs/guia-teste-manual.md`: roteiro de teste da interface do zero — de onde
-  vêm os endereços e as chaves, o passo a passo dos dois painéis e as
-  armadilhas conhecidas.
-- `docs/diagrama-arquitetura-base.md`: diagrama de arquitetura (componentes,
-  o que fica on-chain e o que fica off-chain).
-- `docs/arquitetura.md`: diagrama de sequência do fluxo da função central.
-- `docs/diagrama-classes.md`: diagrama de classes do contrato — atributos,
-  funções e relações.
-- `docs/backend-integracao.md`: rotas do backend e detalhes da integração
-  on-chain.
-- `frontend/`: interface web em React + TypeScript para interagir com o contrato.
+## O problema
 
-## Smart contract e rede de testes
+Um processo por atraso de voo leva de 6 meses a 2 anos no Juizado Especial
+Cível. O passageiro precisa juntar provas, procurar advogado e esperar; a
+companhia troca um custo previsível por condenações incertas; e o Judiciário
+absorve milhares de demandas que poderiam ter sido resolvidas no momento do
+atraso.
 
-| Item | Valor |
-|---|---|
-| Ferramentas | Solidity 0.8.24 + Hardhat 3 |
-| Rede | Hardhat Network local (`npx hardhat node`), chainId `31337` |
-| Endereço implantado | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
-| Testes | `npm test` — 21 testes |
+## A solução
+
+Se o voo atrasa mais de **4 horas**, o contrato deposita **R$ 500,00** na
+carteira do passageiro. Automaticamente, sem pedido, sem análise humana e sem
+processo.
+
+O passageiro não assina transação nenhuma e não tem botão de saque — só
+informa sua chave pública. Se o voo atrasou antes de ele ter conta, o valor
+fica guardado em nome do CPF dele e é depositado no instante do cadastro.
+
+O TJPB recebe uma cópia do registro e o **termo de quitação** de cada
+pagamento: a prova a ser consultada caso a mesma pessoa ingresse no Juizado
+por um dano já quitado.
+
+## Como funciona
+
+```
+Companhia embarca o passageiro  →  R$ 500,00 travados no escrow
+                ↓
+Oráculo apura o voo (fonte externa, fora da cadeia)
+                ↓
+        atraso > 4 h ?
+       ↙                ↘
+    sim                  não
+     ↓                    ↓
+paga o passageiro    devolve a garantia
++ termo de quitação   para a companhia
+```
+
+## Rodando
+
+Requer Node.js 22+.
 
 ```bash
-npm run chain          # 1. sobe a rede de testes local (deixe rodando)
-npm run compile        # 2. compila o contrato
-npm test               # 3. roda os testes
-npm run deploy:local   # 4. implanta e imprime o endereço
-npm run smoke:onchain  # 5. fluxo ponta a ponta contra o contrato implantado
+npm install && npm --prefix frontend install
+
+npm run chain     # terminal 1 — rede local
+npm run deploy    # terminal 2 — implanta e configura tudo
+npm run dev       # terminal 2 — backend :3001 + frontend :3000
 ```
 
-O passo a passo completo, incluindo o deploy opcional na Sepolia, está em
-[`docs/deploy.md`](docs/deploy.md). Para testar a aplicação pela interface —
-de onde vêm os endereços do passageiro e da companhia até conferir o pagamento
-on-chain —, siga [`docs/guia-teste-manual.md`](docs/guia-teste-manual.md).
+Abra `http://localhost:3000`. O deploy grava o endereço do contrato onde o
+backend e o frontend leem — não há endereço para copiar em `.env` nenhum.
 
-## Fluxo do Oracle (consulta off-chain)
+O roteiro completo da demonstração está em [`docs/uso.md`](./docs/uso.md).
 
-O Oracle não participa das transações on-chain. Ele apenas consulta o banco
-mockado (que representa a fonte/API oficial da companhia) e repassa o atraso
-oficial ao backend, que o entrega ao frontend para exibição ao passageiro.
-Somente depois de conferir esse valor o passageiro confirma a solicitação. O
-backend consulta novamente o Oracle e assina
-`registrarAtrasoPelaEmpresa(vooId, enderecoPassageiro, atrasoHorasInformado, atrasoHorasOficial)`.
-O passageiro não precisa de chave privada. A consulta do atraso oficial pelo
-Oracle acontece fora da blockchain.
+## Os três perfis
 
-### Rodando o sistema integrado
+| Perfil | O que faz |
+|---|---|
+| **Passageiro** | Cadastra-se com nome, CPF e chave pública; acompanha os voos e vê quanto já recebeu |
+| **Companhia aérea** | Embarca passageiros (depositando a garantia) e resgata as garantias de voos pontuais |
+| **TJPB** | Audita a cópia do registro e os termos de quitação — sem nenhuma ação de escrita |
 
-0. Antes de tudo, suba a rede de testes e implante o contrato (veja
-   [`docs/deploy.md`](docs/deploy.md)): `npm run chain` em um terminal e
-   `npm run deploy:local` em outro. Sem o contrato implantado e sem os `.env`
-   configurados, a interface abre normalmente, mas as ações da companhia
-   respondem `503` e as consultas do passageiro falham.
-1. Na raiz do projeto, instale as dependências do backend:
-   `npm install`
-2. Instale as dependências do frontend:
-   `npm --prefix frontend install`
-3. **Para rodar o projeto completo em desenvolvimento (o jeito recomendado),
-   use `npm run dev` na raiz.** Esse comando sobe as duas partes juntas:
-   - backend em `http://127.0.0.1:3001`;
-   - frontend (Vite, com hot reload) em `http://localhost:3000` — é essa a
-     URL que você deve abrir no navegador.
+## LGPD: nenhum dado pessoal na cadeia
 
-   O Vite já encaminha automaticamente as chamadas de `/api`, `/voos`,
-   `/companhia` e `/health` para o backend, então não é preciso configurar
-   CORS nem `VITE_API_URL` nesse modo.
+O CPF identifica o cliente, mas nunca é publicado. O que vai para a blockchain
+é `keccak256(pepper, cpf)`; nome e CPF em claro ficam no servidor.
 
-   `npm start` **sozinho só sobe o backend** (`node backend/server.js`), sem
-   o Vite — use-o apenas junto com o passo 4 abaixo, para o modo de
-   aplicação única.
-4. Alternativa: para servir tudo a partir de um único processo (sem hot
-   reload, mais parecido com produção), gere a build com `npm run build` e
-   depois execute `npm start`. Nesse modo o backend também serve o
-   `frontend/dist` já compilado, tudo em `http://127.0.0.1:3001`.
-5. **O banco de dados (`data/store.json`) é zerado automaticamente toda vez**
-   que você roda `npm run dev` ou `npm start` (hooks `predev`/`prestart`
-   chamam `scripts/reset-db.js`), então cada execução começa sem nenhuma
-   companhia, passageiro ou apólice cadastrados. Para zerar manualmente sem
-   reiniciar nada, rode `npm run reset:db`.
-6. Semeie o atraso oficial de um voo usando o Oracle:
-   `node oracle/oracle.js --flight 1234 --delay 240` (delay em minutos; 240 = 4h).
-7. No painel do passageiro (passo 5 da seção **Como usar a interface**,
-   abaixo), o botão "Buscar atraso oficial" chama
-   `POST /voos/:vooId/consultar` no backend, que devolve o `atrasoHorasOficial`
-   já semeado. Se o backend rodar em outro host/porta, aponte o frontend para
-   ele com `VITE_API_URL` (só necessário fora do modo `npm run dev`).
+O pepper existe porque um CPF tem 11 dígitos: o hash do número puro seria
+reversível por força bruta e voltaria a ser, na prática, um dado pessoal.
 
-### Implementação do backend e integração on-chain
+## Logs
 
-O passageiro não possui chave privada e nunca assina transações. O endereço
-informado no cadastro é usado somente como beneficiário do pagamento.
+Toda movimentação da blockchain é impressa no terminal e gravada em
+`logs/blockchain.log`:
 
-1. `oracle/oracle.js` grava o status oficial e o atraso em minutos no banco
-   mockado via `POST /api/internal/flight-status`; o registro recebe um
-   `proofHash` SHA-256 para rastreabilidade off-chain.
-2. As rotas `/companhia/*` são assinadas pelo backend usando
-   `OPERATOR_PRIVATE_KEY` para depósito, resgate, cadastro de voo e inscrição.
-3. `POST /voos/:vooId/consultar` lê o status do Oracle e converte minutos para
-   horas inteiras para exibição.
-4. `POST /voos/:vooId/registrar-atraso` consulta novamente o Oracle, ignora
-   qualquer atraso oficial enviado pelo cliente e chama
-   `registrarAtrasoPelaEmpresa` no contrato.
-5. O contrato valida a companhia, a inscrição, o limite e o saldo; depois
-   transfere o valor diretamente para a carteira do passageiro e emite
-   `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`. Quando não há
-   direito ao pagamento (atraso dentro do limite ou fundo insuficiente), emite
-   `AtrasoRegistrado` e `PagamentoNaoRealizado` com o motivo — é dele que sai a
-   mensagem exibida na interface.
-
-Não existe função pública em que o próprio passageiro informe o atraso oficial:
-ela permitiria a qualquer endereço inscrito declarar um atraso inventado e
-sacar o fundo da companhia. O atraso oficial só entra no contrato pela
-transação assinada pela companhia, com o valor relido do Oracle na hora do
-registro.
-
-#### Configuração da rede
-
-Crie um `.env` na raiz a partir de `.env.example`, sem versionar a chave
-privada:
-
-```env
-RPC_URL=http://127.0.0.1:8545
-CHAIN_ID=31337
-CONTRACT_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3
-OPERATOR_PRIVATE_KEY=0x...
+```
+16:59:34  CHEGADA REPORTADA     G31702 · prevista 03/08 12:20 · real 03/08 17:05 · atraso 4h45 · ATRASADO
+                                regra acionada: indenizar passageiros · tx 0xd8b8…a2b0 · bloco 7 · gas 156.228
+16:59:34  INDENIZACAO RETIDA    G31702 · R$ 500,00 reservados para 0x7ea2…8b5d · passageiro ainda sem cadastro
+                                credito acumulado R$ 500,00
+16:59:34  QUITACAO EMITIDA      G31702 · R$ 500,00 · atraso 4h45 · passageiro 0x7ea2…8b5d
+                                quitacao dos danos materiais imediatos em 12/08 16:59
 ```
 
-O `CONTRACT_ADDRESS` é o endereço impresso por `npm run deploy:local` (também
-gravado em `deployments/localhost.json`). Na rede local, use como
-`OPERATOR_PRIVATE_KEY` a chave da **Account #0** impressa por `npm run chain`
-— ela representa a companhia aérea e já tem saldo para gás. O backend assina
-somente pela companhia; ele não controla carteiras de passageiros.
+O log é lido da própria cadeia, bloco a bloco — registra o que o contrato
+executou, não o que o backend pediu.
 
-Em `frontend/.env`, configure `VITE_RPC_URL` e `VITE_CONTRACT_ADDRESS` com os
-mesmos valores (são usados apenas nas leituras diretas do contrato).
+## Estrutura
 
-Para conferir que os ABIs mantidos à mão continuam batendo com o contrato
-compilado, rode `npm run check:abi`.
+```
+contracts/SeguroVoo.sol   Contrato: termos, escrow, execução e quitação
+deploy/                   Implantação e derivação das carteiras dos papéis
+backend/                  API dos três perfis, assinatura e observador da cadeia
+oracle/                   Base de 20 voos e o serviço que apura on-chain
+frontend/                 React + TypeScript, um painel por perfil
+docs/                     Arquitetura, diagramas, deploy e roteiro de uso
+test/                     30 testes do contrato
+logs/                     Registro das movimentações (gerado)
+```
 
-## Demonstração no Remix
+## Documentação
 
-1. Acesse [remix.ethereum.org](https://remix.ethereum.org), crie um arquivo `SeguroParametrico.sol` e cole o código do contrato.
-2. Vá em **Solidity Compiler**, selecione a versão `0.8.24` e clique em **Compile**.
-3. Vá em **Deploy & Run Transactions**, deixe o **Environment** como `Remix VM`. Você terá várias contas de teste com 100 ETH cada — use:
-   - **Conta 1** → Companhia aérea
-   - **Conta 2** → Passageiro
-4. O construtor não recebe argumentos: com qualquer conta selecionada, clique em **Deploy**.
-5. **Depósito do escrow:** com a **Conta 1** (Companhia) selecionada, coloque `1` no campo **Value** (unidade `Ether`) e chame `depositarFundo`.
-6. **Cadastro do voo:** ainda com a **Conta 1**, coloque **Value = 0** (importante!) e chame `cadastrarVoo(vooId, horarioPartida, horarioChegada)` — os horários são timestamps Unix (segundos) e o contrato usa `msg.sender` (a Conta 1) como endereço da empresa automaticamente.
-7. **Inscrição do passageiro:** ainda com a **Conta 1** (Companhia), chame `inscreverPassageiroPelaEmpresa(vooId, enderecoDaConta2)` — é o que a interface web faz, já que o passageiro não assina transações por lá. Alternativa: trocando para a **Conta 2**, o próprio passageiro pode se inscrever com `inscreverNoVoo(vooId)`.
-8. **Registro do atraso e pagamento automático:** com a **Conta 1** (só a companhia dona do voo pode chamar), execute `registrarAtrasoPelaEmpresa(vooId, enderecoDaConta2, atrasoHorasInformado, atrasoHorasOficial)` — use um valor de `atrasoHorasOficial` `> 2` para disparar o pagamento (`atrasoHorasInformado` é livre, fica apenas registrado). Confira no console os eventos `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`. Com `atrasoHorasOficial <= 2`, ou sem fundo suficiente, aparece `PagamentoNaoRealizado` com o motivo.
-9. **Conferir o estado:**
-   - `consultarSaldo(enderecoDaCompanhia)` → saldo do escrow da companhia, em wei (ex: `980000000000000000` = `0,98 ETH`).
-   - `consultarVoo(vooId)` → mostra o voo, incluindo `totalPassageiros`.
-   - `consultarInscricao(vooId, enderecoDoPassageiro)` → mostra `registrado: true` e `pago: true` para a Conta 2.
-   - Saldo da carteira do passageiro (Conta 2) aumenta em `0,01 ETH` — visível no dropdown **Account**.
-> ⚠️ **Atenção ao campo Value:** ele só deve ter valor diferente de zero na chamada de `depositarFundo` (a única função `payable`). Nas demais funções, deixe **Value = 0**, senão a transação reverte.
-> ⚠️ **Atenção à conta selecionada:** `cadastrarVoo`, `inscreverPassageiroPelaEmpresa` e `registrarAtrasoPelaEmpresa` devem ser chamadas pela conta da companhia; `inscreverNoVoo`, pela conta do passageiro — o contrato usa `msg.sender` para validar isso e reverte caso contrário.
+- [Arquitetura](./docs/arquitetura.md) — componentes, papéis e a fronteira
+  on-chain/off-chain
+- [Diagrama de componentes](./docs/diagramas/componentes.md)
+- [Diagrama de sequência](./docs/diagramas/sequencia.md)
+- [Diagrama de classes](./docs/diagramas/classes.md)
+- [Deploy e execução](./docs/deploy.md)
+- [Roteiro de demonstração](./docs/uso.md)
 
-## Regra paramétrica atual
+## Rede
 
-- atraso de até duas horas: nenhuma indenização;
-- atraso superior a duas horas: pagamento fixo de `0,01 ETH`;
-- saldo insuficiente: atraso registrado, sem pagamento; uma nova tentativa
-  pode ser feita após a companhia depositar fundos.
+Rede local (Hardhat Network, chainId 31337). A proposta indica a Rede
+Blockchain Brasil — permissionada, priorizando segurança e escalabilidade
+sobre descentralização total, com custo de transação previsível. O que mudaria
+lá é o endpoint e a governança dos nós; o contrato e os papéis são os mesmos.
+O TJPB, que aqui é uma conta com acesso de leitura, lá seria um nó validador.
 
-ETH é usado apenas como unidade de demonstração.
+## Testes
 
-## Frontend (React + TypeScript)
+```bash
+npm test
+```
 
-O projeto possui uma interface web local em `frontend/` para interagir com o contrato de forma visual.
+30 testes cobrindo o controle de acesso de cada papel, as bordas da regra
+(4 h 05 indeniza, 4 h 00 não), o depósito direto na carteira, a retenção para
+CPF sem cadastro e a liberação automática no momento do cadastro.
 
-### Executar só o frontend
+## Escopo do protótipo
 
-1. Abra um terminal na pasta `frontend`:
-   ```bash
-   cd frontend
-   ```
-2. Instale as dependências:
-   ```bash
-   npm install
-   ```
-3. Inicie o servidor de desenvolvimento:
-   ```bash
-   npm run dev
-   ```
-4. Acesse no navegador: **http://localhost:3000/**
+Entregue: o contrato completo, os três painéis, o oráculo com apuração
+automática, o sistema de logs, os diagramas e a suíte de testes.
 
-Se o backend estiver rodando na configuração padrão (`http://127.0.0.1:3001`),
-o Vite já encaminha automaticamente as chamadas de API. `VITE_API_URL` só é
-necessário quando a API estiver em outro host ou porta.
-
-### Como usar a interface
-
-Não é preciso ter a MetaMask ou qualquer extensão instalada. A companhia
-aérea é única, fixa e configurada automaticamente pelo backend (a chave dela
-fica só no servidor); o passageiro só precisa de um nome e de um endereço de
-carteira (pode ser só digitado, não precisa controlar a chave privada dele).
-
-1. **Login:** na tela inicial, escolha um perfil: **Sou uma companhia
-   aérea** ou **Sou passageiro**.
-2. **Companhia aérea:** entra direto no painel, sem nenhum cadastro — dá
-   para depositar/resgatar o fundo de garantia, cadastrar voos (número +
-   horários de partida e chegada) e inscrever um passageiro já cadastrado
-   (escolhido por nome em uma lista) em um dos voos dela.
-3. **Passageiro (primeiro acesso):** é pedido um nome e o endereço da
-   carteira (formato `0x` + 40 caracteres hexadecimais). Isso cadastra o
-   passageiro no backend; se o mesmo endereço já existir, ele é reaproveitado
-   em vez de dar erro. Depois de cadastrado, é a companhia quem o inscreve
-   nos voos (pelo nome, no painel dela).
-4. **Trocar usuário:** o botão **Trocar usuário**, no topo, limpa a
-   identidade atual e volta para a tela de cadastro, permitindo entrar com
-   outro nome/endereço.
-5. **Painel do passageiro:** consultar um voo pelo número para ver se já foi
-   inscrito nele pela companhia, acompanhar os voos em que está inscrito e,
-   para os que tiverem atraso, buscar o valor oficial junto ao Oracle e
-   confirmar o registro que dispara o pagamento automático.
-6. **Sair:** encerra a sessão e volta para a tela de login (não apaga o
-   cadastro do passageiro, só a sessão local).
-
-> As leituras do contrato (consultar voo, calcular multa etc.) usam RPC
-> direto e dependem de `VITE_CONTRACT_ADDRESS`/`VITE_RPC_URL` estarem
-> configurados (veja `frontend/.env.example`). Sem isso, a navegação e o
-> cadastro continuam funcionando normalmente, só as consultas ao contrato
-> falham.
-
-### Estrutura do frontend
-
-- `src/App.tsx`: orquestra o login, a identidade do passageiro e qual painel
-  exibir.
-- `src/config.ts`: configuração fixa (URL do backend, RPC e endereço do
-  contrato para leituras diretas).
-- `src/api.ts`: chamadas ao backend (cadastro de passageiro, ações da
-  companhia e do passageiro que exigem assinatura).
-- `src/hooks/usePassengerIdentity.ts`: identidade do passageiro (nome +
-  endereço) persistida no `localStorage`, cadastrada via backend.
-- `src/components/LoginScreen.tsx`: tela inicial de escolha de perfil.
-- `src/components/PassengerRegisterGate.tsx`: cadastro do passageiro
-  (nome + endereço da carteira).
-- `src/components/TopBar.tsx`: cabeçalho fixo com as abas Companhia/
-  Passageiro, a identidade ativa e os botões de trocar usuário/sair.
-- `src/components/AirlinePanel.tsx`: fundo de garantia, cadastro e listagem
-  de voos da companhia e inscrição de passageiros (por nome) nos voos dela
-  (tudo via backend).
-- `src/components/PassengerPanel.tsx`: consulta de voos, listagem dos voos
-  em que o passageiro foi inscrito e fluxo de indenização.
-- `src/utils/address.ts`: validação e formatação de endereços.
-- `src/contract.ts`: ABI do `SeguroParametrico.sol`.
-- Cada componente possui seu próprio arquivo `.css` para personalização visual.
+As limitações deliberadas — vínculo CPF↔carteira sem validação documental,
+oráculo único, base de voos mockada e ausência de autenticação institucional
+nas telas — estão detalhadas em
+[docs/arquitetura.md § Limitações conhecidas](./docs/arquitetura.md#limitações-conhecidas).
 
 ## Uso de Inteligência Artificial
 
-Este projeto usou um assistente de IA como ferramenta de apoio, de forma
-consciente e supervisionada por integrantes do grupo, não como substituto
-das decisões técnicas. O processo foi:
-
-1. o grupo definiu o problema, os requisitos da disciplina e a ideia geral da
-   arquitetura (incluindo o diagrama original desenhado à mão pelo grupo);
-2. essa ideia foi passada à IA para refinar a arquitetura, escrever o
-   contrato e formalizar os diagramas em Mermaid;
-3. cada resultado foi revisado por integrantes do grupo: o contrato foi lido
-   linha a linha e compilado antes de aceito, os diagramas foram conferidos
-   contra a versão original do grupo, e o texto foi ajustado sempre que
-   alguma decisão gerada não refletia exatamente o que o grupo pretendia;
-4. modelos diferentes de IA foram utilizados para a produção guiada e compreensão
-   do código do contrato em Solidity.
+O grupo definiu o problema, os requisitos e a arquitetura da solução; a IA foi
+usada como ferramenta de apoio na implementação e na formalização dos
+diagramas, com revisão de cada resultado pelos integrantes.

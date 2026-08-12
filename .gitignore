@@ -1,11 +1,18 @@
 node_modules/
-.env
 artifacts/
 cache/
-coverage/
-dist/
-data/store.local.json
-data/store.smoke.json
+types/
 
-# Tipos gerados pelo typechain durante `npx hardhat compile` (raiz do projeto).
-/types/
+.env
+.env.local
+
+# Estado local: gerado a cada execução
+data/clientes.json
+data/manifesto.json
+logs/*
+!logs/.gitkeep
+
+# Gerado pelo deploy
+frontend/src/rede.config.ts
+frontend/dist/
+*.tsbuildinfo

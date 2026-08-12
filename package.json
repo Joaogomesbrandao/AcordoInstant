@@ -1,33 +1,28 @@
 {
   "name": "acordoinstant",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
+  "description": "Seguro parametrico de atraso de voo em contrato inteligente — AcordoInstant (ESMA-PB 2026)",
   "scripts": {
-    "predev": "node scripts/reset-db.js",
+    "chain": "mkdir -p logs && hardhat node 2>&1 | tee logs/hardhat-node.log",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run deploy/deploy.js --network localhost",
+    "seed": "node deploy/seed.js",
     "dev": "concurrently -k -n backend,frontend -c yellow,cyan \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "node backend/server.js",
     "dev:frontend": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
-    "prestart": "node scripts/reset-db.js",
     "start": "node backend/server.js",
-    "reset:db": "node scripts/reset-db.js",
-    "chain": "hardhat node",
-    "compile": "hardhat compile",
-    "test": "hardhat test",
-    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
-    "check:contract": "node scripts/check-contract.js",
-    "check:abi": "node scripts/check-abi.js",
-    "smoke:api": "node scripts/smoke-api.js",
-    "smoke:onchain": "node scripts/smoke-onchain.js"
+    "reset": "node scripts/reset.js",
+    "logs": "tail -f logs/blockchain.log"
   },
   "dependencies": {
     "concurrently": "^9.2.1",
     "dotenv": "^17.2.2",
     "ethers": "^6.15.0",
-    "express": "^5.1.0",
-    "solc": "^0.8.30"
+    "express": "^5.1.0"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.7",

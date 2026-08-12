@@ -1,10 +1,49 @@
 {
-  "contrato": "SeguroParametrico",
+  "contrato": "SeguroVoo",
   "endereco": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "rede": "localhost",
   "chainId": 31337,
-  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "txHash": "0x17f97221a2bd193f292e43186e5818409da39185552e828b519cf3706e7da3eb",
+  "rpcUrl": "http://127.0.0.1:8545",
+  "implantadoPor": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "txHash": "0x6e4cdc7f71c148a96d054355b2a6a964038a71beaabd36e19c57ec6a283abe22",
   "bloco": 1,
-  "implantadoEm": "2026-08-11T01:25:55.589Z"
+  "implantadoEm": "2026-08-12T20:25:05.087Z",
+  "regra": {
+    "limiarAtrasoHoras": 4,
+    "indenizacaoWei": "500000000000000000",
+    "indenizacaoReais": "R$ 500,00"
+  },
+  "papeis": {
+    "companhia": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "oraculo": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "tjpb": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "plataforma": "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+  },
+  "usuariosDeTeste": [
+    {
+      "indice": 4,
+      "rotulo": "Usuario de teste 1",
+      "endereco": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+    },
+    {
+      "indice": 5,
+      "rotulo": "Usuario de teste 2",
+      "endereco": "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
+    },
+    {
+      "indice": 6,
+      "rotulo": "Usuario de teste 3",
+      "endereco": "0x976EA74026E726554dB657fA54763abd0C3a0aa9"
+    },
+    {
+      "indice": 7,
+      "rotulo": "Usuario de teste 4",
+      "endereco": "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955"
+    },
+    {
+      "indice": 8,
+      "rotulo": "Usuario de teste 5",
+      "endereco": "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+    }
+  ]
 }

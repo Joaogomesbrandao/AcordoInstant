@@ -1,59 +1,54 @@
 import { useState } from 'react';
-import { LoginScreen } from './components/LoginScreen';
-import { TopBar } from './components/TopBar';
-import { PassengerRegisterGate } from './components/PassengerRegisterGate';
-import { AirlinePanel } from './components/AirlinePanel';
-import { PassengerPanel } from './components/PassengerPanel';
-import { usePassengerIdentity } from './hooks/usePassengerIdentity';
-import type { Role } from './types/role';
+import { TelaLogin } from './components/TelaLogin';
+import { BarraTopo } from './components/BarraTopo';
+import { AcessoCliente } from './components/AcessoCliente';
+import { PainelCliente } from './components/PainelCliente';
+import { PainelCompanhia } from './components/PainelCompanhia';
+import { PainelTribunal } from './components/PainelTribunal';
+import { useSessaoCliente } from './hooks/useSessaoCliente';
+import type { Perfil } from './tipos';
 import './App.css';
 
+/**
+ * Três perfis, três painéis.
+ *
+ * Companhia e TJPB entram direto — são instituições, e suas carteiras já
+ * existem desde a implantação da rede. Só o passageiro tem cadastro e
+ * login, porque é o CPF dele que identifica o dinheiro guardado no
+ * contrato.
+ */
 export default function App() {
-  const [entered, setEntered] = useState(false);
-  const [activeTab, setActiveTab] = useState<Role>('airline');
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const sessao = useSessaoCliente();
 
-  const passenger = usePassengerIdentity();
-
-  function handleEnter(role: Role) {
-    setActiveTab(role);
-    setEntered(true);
+  if (!perfil) {
+    return <TelaLogin aoEntrar={setPerfil} />;
   }
 
-  function handleLogout() {
-    passenger.limpar();
-    setEntered(false);
-  }
-
-  function handleSwitchUser() {
-    passenger.limpar();
-  }
-
-  if (!entered) {
-    return <LoginScreen onEnter={handleEnter} />;
-  }
+  const identidade =
+    perfil === 'cliente' && sessao.cliente
+      ? `${sessao.cliente.nome} · ${sessao.cliente.cpf}`
+      : null;
 
   return (
     <div className="app">
-      <TopBar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        passengerIdentity={passenger.identity}
-        onSwitchUser={handleSwitchUser}
-        onLogout={handleLogout}
+      <BarraTopo
+        perfil={perfil}
+        identidade={identidade}
+        aoTrocarPerfil={() => setPerfil(null)}
+        aoSair={perfil === 'cliente' && sessao.cliente ? sessao.sair : undefined}
       />
 
       <main className="app-main">
-        {activeTab === 'airline' ? (
-          <AirlinePanel />
-        ) : passenger.identity ? (
-          <PassengerPanel identity={passenger.identity} />
-        ) : (
-          <PassengerRegisterGate
-            registering={passenger.registering}
-            error={passenger.error}
-            onSubmit={passenger.registrar}
-          />
-        )}
+        {perfil === 'companhia' ? <PainelCompanhia /> : null}
+        {perfil === 'tribunal' ? <PainelTribunal /> : null}
+        {perfil === 'cliente' ? (
+          sessao.cliente ? (
+            <PainelCliente cliente={sessao.cliente} />
+          ) : (
+            <AcessoCliente aoEntrar={sessao.entrar} />
+          )
+        ) : null}
       </main>
     </div>
   );

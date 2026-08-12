@@ -4,10 +4,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    port: 3000,
     proxy: {
+      // O backend assina e lê a blockchain; o frontend só consome esta API.
       '/api': 'http://127.0.0.1:3001',
-      '/voos': 'http://127.0.0.1:3001',
-      '/companhia': 'http://127.0.0.1:3001',
       '/health': 'http://127.0.0.1:3001',
     },
   },
