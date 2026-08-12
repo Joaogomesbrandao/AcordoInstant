@@ -12,7 +12,7 @@ import './App.css';
 /**
  * Três perfis, três painéis.
  *
- * Companhia e TJPB entram direto — são instituições, e suas carteiras já
+ * Companhia e TJPB entram direto, pois são instituições, e suas carteiras já
  * existem desde a implantação da rede. Só o passageiro tem cadastro e
  * login, porque é o CPF dele que identifica o dinheiro guardado no
  * contrato.

@@ -11,7 +11,7 @@ flowchart TB
         tjpb["Painel do TJPB<br/>auditoria · quitações"]
     end
 
-    subgraph servidor["Servidor — fora da blockchain"]
+    subgraph servidor["Servidor, fora da blockchain"]
         api["Backend (Express)<br/>API dos três perfis"]
         dados[("Dados pessoais<br/>nome · CPF em claro")]
         oraculo["Serviço do oráculo<br/>apura voos pendentes"]
@@ -20,7 +20,7 @@ flowchart TB
         obs["Observador da cadeia<br/>lê eventos bloco a bloco"]
     end
 
-    subgraph cadeia["Blockchain — rede local"]
+    subgraph cadeia["Blockchain, rede local"]
         contrato["SeguroVoo.sol<br/>termos · escrow · quitação"]
     end
 

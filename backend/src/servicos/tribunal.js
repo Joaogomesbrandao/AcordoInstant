@@ -1,7 +1,7 @@
 import { brl, curto } from "../../../lib/formato.js";
 
 /**
- * Painel do TJPB — nó validador.
+ * Painel do TJPB: o nó validador.
  *
  * O Tribunal não tem nenhuma função de escrita neste serviço, e isso é
  * proposital: a proposta define o TJPB como validador que audita, não como
@@ -43,7 +43,6 @@ export function criarServicoDoTribunal({ acesso, consultas, manifesto }) {
     const bilhetes = voos.flatMap((voo) => voo.bilhetes);
     const indenizados = bilhetes.filter((bilhete) => bilhete.indenizado);
     const emEscrow = bilhetes.filter((bilhete) => bilhete.status === "Ativo");
-    const custodiado = await contrato.saldoCustodiado();
 
     return {
       regra: await consultas.regra(),
@@ -52,7 +51,7 @@ export function criarServicoDoTribunal({ acesso, consultas, manifesto }) {
         no: acesso.enderecoDoTjpb,
         // Explicita a natureza do papel: o painel não expõe nenhuma ação de
         // escrita porque o contrato não dá nenhuma ao Tribunal.
-        permissoes: "somente leitura — o TJPB audita o registro e nao pode alterar contratos"
+        permissoes: "somente leitura: o TJPB audita o registro e nao pode alterar contratos"
       },
       totais: {
         voos: voos.length,
@@ -65,12 +64,7 @@ export function criarServicoDoTribunal({ acesso, consultas, manifesto }) {
           indenizados.reduce((total, bilhete) => total + BigInt(bilhete.garantiaWei), 0n)
         ),
         garantiasAtivas: emEscrow.length,
-        emEscrow: brl(
-          emEscrow.reduce((total, bilhete) => total + BigInt(bilhete.garantiaWei), 0n)
-        ),
-        // Inclui, além do escrow ativo, indenizações retidas à espera do
-        // cadastro do cliente e garantias que a companhia ainda não sacou.
-        saldoCustodiado: brl(custodiado)
+        emEscrow: brl(emEscrow.reduce((total, bilhete) => total + BigInt(bilhete.garantiaWei), 0n))
       },
       voos,
       quitacoes: await quitacoes(catalogo),

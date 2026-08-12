@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { painelDoCliente } from '../api';
 import { usePainel } from '../hooks/usePainel';
 import type { Cliente } from '../tipos';
-import { dataHora } from '../utils/formato';
+import { dataHora, estadoDoVoo } from '../utils/formato';
 import { Aviso, FaixaRegra, Hash, Indicadores, LinhaVoo, Vazio } from './comuns';
 import './painel.css';
 
@@ -12,7 +12,7 @@ import './painel.css';
  * Não há botão de saque em lugar nenhum, e isso é o desenho da solução: a
  * indenização é depositada direto na carteira quando o oráculo confirma o
  * atraso. A tela serve para acompanhar os voos e conferir quanto já foi
- * pago — por voo e no total.
+ * pago, por voo e no total.
  */
 export function PainelCliente({ cliente }: { cliente: Cliente }) {
   const carregar = useCallback(() => painelDoCliente(cliente.cpfDigitos), [cliente.cpfDigitos]);
@@ -45,7 +45,6 @@ export function PainelCliente({ cliente }: { cliente: Cliente }) {
           { valor: dados.totais.depositado, rotulo: 'Já depositado na sua carteira' },
           { valor: dados.totais.viagens, rotulo: 'Voos segurados' },
           { valor: dados.totais.indenizadas, rotulo: 'Voos indenizados' },
-          { valor: dados.totais.saldoDaCarteira, rotulo: 'Saldo da carteira' },
         ]}
       />
 
@@ -75,7 +74,7 @@ export function PainelCliente({ cliente }: { cliente: Cliente }) {
         ) : (
           <ul className="lista-voos">
             {dados.viagens.map((viagem) => (
-              <li key={viagem.bilheteId} className="voo">
+              <li key={viagem.bilheteId} className={`voo ${estadoDoVoo(viagem.voo)}`}>
                 <LinhaVoo
                   voo={viagem.voo}
                   extra={

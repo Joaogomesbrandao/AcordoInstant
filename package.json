@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Seguro parametrico de atraso de voo em contrato inteligente — AcordoInstant (ESMA-PB 2026)",
+  "description": "Seguro parametrico de atraso de voo em contrato inteligente. AcordoInstant (ESMA-PB 2026)",
   "scripts": {
     "chain": "mkdir -p logs && hardhat node 2>&1 | tee logs/hardhat-node.log",
     "compile": "hardhat compile",

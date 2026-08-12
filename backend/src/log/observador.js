@@ -7,7 +7,7 @@ import { curto } from "../../../lib/formato.js";
  * Em vez de registrar o que o backend *pediu*, este módulo registra o que a
  * cadeia de fato *executou*: ele lê os logs do contrato bloco a bloco. A
  * diferença importa porque o oráculo roda em outro fluxo e o contrato
- * dispara pagamentos por conta própria dentro de uma única transação — nada
+ * dispara pagamentos por conta própria dentro de uma única transação, e nada
  * disso apareceria se o log fosse escrito no ponto de chamada.
  *
  * No arranque o histórico é apenas indexado, sem reimprimir: reiniciar o

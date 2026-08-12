@@ -5,7 +5,7 @@ import path from "node:path";
 import { hashCpf, normalizarCpf } from "../../../lib/cpf.js";
 
 /**
- * Manifesto de passageiros da companhia aérea — registro off-chain.
+ * Manifesto de passageiros da companhia aérea: o registro off-chain.
  *
  * A companhia sabe quem embarcou: nome e CPF fazem parte da operação dela.
  * Esses dados ficam aqui, no servidor. Para a blockchain vai apenas o

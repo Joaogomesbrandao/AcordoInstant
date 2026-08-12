@@ -2,7 +2,7 @@
 
 /** Timestamp Unix -> `"03/08 12:20"`. */
 export function dataHora(timestamp: number | null | undefined): string {
-  if (!timestamp) return '—';
+  if (!timestamp) return '-';
 
   return new Date(timestamp * 1000)
     .toLocaleString('pt-BR', {
@@ -36,4 +36,10 @@ export function mascaraCpf(valor: string): string {
 export function seloDoVoo(voo: { apurado: boolean; atrasado: boolean }): string {
   if (!voo.apurado) return 'badge badge-neutral';
   return voo.atrasado ? 'badge badge-warning' : 'badge badge-success';
+}
+
+/** Classe do cartão do voo, para colorir a lista pelo desfecho apurado. */
+export function estadoDoVoo(voo: { apurado: boolean; atrasado: boolean }): string {
+  if (!voo.apurado) return 'voo-aguardando';
+  return voo.atrasado ? 'voo-atrasado' : 'voo-pontual';
 }

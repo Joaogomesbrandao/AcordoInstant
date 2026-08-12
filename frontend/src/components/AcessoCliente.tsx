@@ -16,7 +16,7 @@ interface CarteiraDeTeste {
  * criar a conta.
  *
  * O cadastro é o momento em que o contrato vincula o hash do CPF à carteira
- * — e, com isso, deposita de uma vez qualquer indenização que já estivesse
+ * e, com isso, deposita de uma vez qualquer indenização que já estivesse
  * reservada para aquele CPF de voos anteriores. Por isso a tela avisa o
  * valor liberado assim que a conta é criada.
  */
@@ -107,7 +107,7 @@ export function AcessoCliente({ aoEntrar }: { aoEntrar: (cliente: Cliente) => vo
               required
             />
             <p className="field-hint">
-              O CPF identifica você no sistema. Na blockchain entra apenas o hash dele — o número
+              O CPF identifica você no sistema. Na blockchain entra apenas o hash dele; o número
               nunca é publicado.
             </p>
           </div>

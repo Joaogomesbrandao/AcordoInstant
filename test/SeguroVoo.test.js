@@ -193,7 +193,7 @@ describe("SeguroVoo", () => {
   });
 
   describe("regra parametrica", () => {
-    it("atraso de 4h05 indeniza — a comparacao e em minutos", async () => {
+    it("atraso de 4h05 indeniza, a comparacao e em minutos", async () => {
       const bilheteId = await embarcar("LA3890", CPF_ANA);
       await contrato.connect(oraculo).reportarChegada("LA3890", CHEGADA + 4 * HORA + 5 * 60);
 
@@ -205,7 +205,7 @@ describe("SeguroVoo", () => {
       assert.equal(bilhete.status, StatusBilhete.Indenizado);
     });
 
-    it("atraso de exatamente 4h nao indeniza — a regra e 'superior a'", async () => {
+    it("atraso de exatamente 4h nao indeniza, a regra e 'superior a'", async () => {
       const bilheteId = await embarcar("LA4115", CPF_ANA);
       await contrato.connect(oraculo).reportarChegada("LA4115", CHEGADA + 4 * HORA);
 

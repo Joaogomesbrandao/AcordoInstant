@@ -15,7 +15,7 @@ export interface Bilhete {
   idCurto: string;
   hashCpf: string;
   hashCpfCurto: string;
-  /** Vem do manifesto off-chain da companhia — a cadeia não guarda nome. */
+  /** Vem do manifesto off-chain da companhia; a cadeia não guarda nome. */
   passageiro: string | null;
   garantiaWei: string;
   garantia: string;
@@ -54,6 +54,24 @@ export interface VooDisponivel {
   partidaPrevista: number;
   chegadaPrevista: number;
   cadastrado: boolean;
+  atrasoMinutos: number;
+  atraso: string;
+  /** true quando o atraso passa do limite e o voo vai indenizar. */
+  indeniza: boolean;
+}
+
+/** Passageiro da lista montada antes de confirmar o embarque. */
+export interface PassageiroPendente {
+  nome: string;
+  cpf: string;
+}
+
+export interface EmbarqueResultado {
+  codigo: string;
+  total: number;
+  garantiaPorBilhete: string;
+  garantiaTotal: string;
+  embarcados: { bilheteId: string; passageiro: string; cpf: string; txHash: string }[];
 }
 
 export interface Cliente {
@@ -84,7 +102,6 @@ export interface PainelCliente {
     aguardandoCadastro: string;
     viagens: number;
     indenizadas: number;
-    saldoDaCarteira: string;
   };
   viagens: Viagem[];
 }
@@ -104,6 +121,8 @@ export interface PainelCompanhia {
     emEscrow: string;
     saldoLiberado: string;
     saldoLiberadoWei: string;
+    saldoCarteira: string;
+    saldoCarteiraReais: string;
   };
   voos: Voo[];
 }
@@ -135,7 +154,6 @@ export interface PainelTribunal {
     totalIndenizado: string;
     garantiasAtivas: number;
     emEscrow: string;
-    saldoCustodiado: string;
   };
   voos: Voo[];
   quitacoes: Quitacao[];

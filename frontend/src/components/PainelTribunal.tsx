@@ -1,11 +1,11 @@
 import { painelDoTribunal } from '../api';
 import { usePainel } from '../hooks/usePainel';
-import { dataHora } from '../utils/formato';
+import { dataHora, estadoDoVoo } from '../utils/formato';
 import { Aviso, FaixaRegra, Hash, Indicadores, LinhaVoo, Vazio } from './comuns';
 import './painel.css';
 
 /**
- * Painel do TJPB — nó validador.
+ * Painel do TJPB: o nó validador.
  *
  * Deliberadamente não há nenhum botão de ação: o Tribunal audita a cópia do
  * registro e não interfere no processo. O que ele enxerga aqui é o mesmo que
@@ -42,7 +42,6 @@ export function PainelTribunal() {
           { valor: dados.totais.atrasados, rotulo: 'Voos atrasados' },
           { valor: dados.totais.indenizacoes, rotulo: 'Indenizações executadas' },
           { valor: dados.totais.totalIndenizado, rotulo: 'Total pago aos passageiros' },
-          { valor: dados.totais.saldoCustodiado, rotulo: 'Custodiado no contrato' },
         ]}
       />
 
@@ -107,7 +106,7 @@ export function PainelTribunal() {
         ) : (
           <ul className="lista-voos">
             {dados.voos.map((voo) => (
-              <li key={voo.id} className="voo">
+              <li key={voo.id} className={`voo ${estadoDoVoo(voo)}`}>
                 <LinhaVoo voo={voo} />
 
                 <div className="voo-auditoria">

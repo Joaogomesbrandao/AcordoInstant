@@ -10,7 +10,7 @@ import { criarLogger } from "../lib/logger.js";
  * Embarca passageiros em voos com os três desfechos possíveis (atraso acima
  * do limite, atraso abaixo do limite e voo pontual) e **não** cadastra
  * nenhum cliente. Isso é proposital: é o cenário mais interessante da
- * solução — quando o voo atrasa, o contrato guarda a indenização em nome do
+ * solução: quando o voo atrasa, o contrato guarda a indenização em nome do
  * hash do CPF, e o valor só é depositado quando aquela pessoa se cadastra
  * informando a chave pública.
  *

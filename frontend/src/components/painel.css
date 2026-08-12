@@ -163,9 +163,26 @@
 
 .voo {
   border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   padding: 1rem 1.15rem;
   background: var(--color-surface-alt);
+}
+
+/* Cor por desfecho apurado: legível de longe durante a apresentação. */
+
+.voo-aguardando {
+  border-left-color: var(--color-border-strong);
+}
+
+.voo-pontual {
+  border-left-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.voo-atrasado {
+  border-left-color: var(--color-warning);
+  background: var(--color-warning-soft);
 }
 
 .voo-topo {
@@ -312,6 +329,89 @@
 
 .formulario-embarque .btn {
   margin-bottom: 1rem;
+}
+
+/* Seleção de voo: o desfecho já aparece na cor da opção. */
+
+select.voo-atrasa {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+select.voo-no-prazo {
+  color: var(--color-teal-dark);
+  font-weight: 600;
+}
+
+option.voo-atrasa {
+  color: var(--color-danger);
+}
+
+option.voo-no-prazo {
+  color: var(--color-teal-dark);
+}
+
+/* Lista de passageiros montada antes de confirmar o embarque. */
+
+.lista-pendentes {
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  background: var(--color-bg-alt);
+  margin-bottom: 1rem;
+}
+
+.lista-pendentes-titulo {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  margin-bottom: 0.75rem;
+}
+
+.lista-pendentes ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.lista-pendentes li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.pendente-nome {
+  font-weight: 600;
+}
+
+.pendente-cpf {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--color-ink-faint);
+}
+
+.pendente-remover {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--color-danger);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+}
+
+.pendente-remover:hover {
+  background: var(--color-danger-soft);
 }
 
 .resgate {

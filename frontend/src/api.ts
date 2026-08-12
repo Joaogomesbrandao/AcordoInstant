@@ -1,9 +1,11 @@
 import type {
   CadastroResultado,
   Cliente,
+  EmbarqueResultado,
   PainelCliente,
   PainelCompanhia,
   PainelTribunal,
+  PassageiroPendente,
   VooDisponivel,
 } from './tipos';
 
@@ -65,11 +67,11 @@ export const voosDisponiveis = () => requisitar<VooDisponivel[]>('/api/companhia
 export const cadastrarVoo = (codigo: string) =>
   postar<{ codigo: string; txHash: string }>('/api/companhia/voos', { codigo });
 
-export const embarcarPassageiro = (dados: { codigo: string; nome: string; cpf: string }) =>
-  postar<{ passageiro: string; codigo: string; garantia: string; txHash: string }>(
-    '/api/companhia/passageiros',
-    dados,
-  );
+/** Embarca a lista inteira de passageiros de um voo em uma única chamada. */
+export const embarcarPassageiros = (dados: {
+  codigo: string;
+  passageiros: PassageiroPendente[];
+}) => postar<EmbarqueResultado>('/api/companhia/passageiros', dados);
 
 export const resgatarGarantias = () =>
   postar<{ valor: string; txHash: string }>('/api/companhia/resgatar');

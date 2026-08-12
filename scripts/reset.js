@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
  * Zera o estado off-chain: clientes cadastrados, manifesto da companhia e
  * arquivos de log.
  *
- * O que está na blockchain não é apagado por aqui — para começar do zero de
+ * O que está na blockchain não é apagado por aqui. Para começar do zero de
  * verdade, reinicie o `npm run chain` (a Hardhat Network não persiste nada
  * em disco) e rode `npm run deploy` de novo.
  */

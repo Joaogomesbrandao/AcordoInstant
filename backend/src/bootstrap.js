@@ -17,7 +17,7 @@ import { curto } from "../../lib/formato.js";
  * cadeia e o oráculo.
  *
  * O oráculo sobe junto com o backend de propósito. É ele que faz a
- * verificação automática prometida pela solução — sem nenhuma ação humana,
+ * verificação automática prometida pela solução: sem nenhuma ação humana,
  * o voo é apurado e o contrato executado.
  */
 export async function montarSistema(ajustes = {}) {

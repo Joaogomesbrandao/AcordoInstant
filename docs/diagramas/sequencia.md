@@ -1,6 +1,6 @@
 # Diagrama de sequência
 
-O caminho completo, do embarque ao depósito — incluindo o caso em que o
+O caminho completo, do embarque ao depósito, incluindo o caso em que o
 passageiro ainda não é usuário da plataforma quando o voo atrasa.
 
 ```mermaid
@@ -21,7 +21,7 @@ sequenceDiagram
     SC-->>B: BilheteRegistrado
     Note over SC: garantia travada no escrow
 
-    Note over O,SC: 2. Apuração automática — sem ação humana
+    Note over O,SC: 2. Apuração automática, sem ação humana
 
     O->>O: procura voos pendentes com embarque encerrado
     O->>O: lê o horário real na base externa
@@ -61,7 +61,7 @@ sequenceDiagram
 ## Pontos de atenção
 
 **O passageiro não aparece assinando nada.** Ele só recebe. Não existe função
-de saque para ele no contrato — apenas depósito.
+de saque para ele no contrato, apenas depósito.
 
 **A apuração e o pagamento são a mesma transação.** `reportarChegada` percorre
 todos os bilhetes do voo e resolve cada um; não há um segundo passo que possa

@@ -7,7 +7,7 @@ import { curto, dataHora, duracao } from "../lib/formato.js";
  * É a fonte de dados externa da proposta: fica fora da blockchain, conhece o
  * horário real de chegada de cada voo (oracle/voos.mock.js) e é a única
  * conta autorizada pelo contrato a escrever esse número on-chain. Nem a
- * companhia nem o passageiro conseguem informar o atraso — o parâmetro do
+ * companhia nem o passageiro conseguem informar o atraso: o parâmetro do
  * seguro entra por aqui e só por aqui.
  *
  * A apuração é automática: como a base já tem o horário real, o serviço
@@ -60,7 +60,7 @@ export function criarOraculo({ acesso, log, janelaEmbarqueSegundos = 15 }) {
     const dados = buscarVoo(codigo);
 
     if (!dados) {
-      log.aviso(`voo ${codigo} nao existe na base do oraculo — nada a reportar`);
+      log.aviso(`voo ${codigo} nao existe na base do oraculo, nada a reportar`);
       return null;
     }
 

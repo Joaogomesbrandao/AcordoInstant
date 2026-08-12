@@ -4,7 +4,7 @@ import { carteiraDoPapel } from "../../../deploy/contas.js";
 /**
  * Acesso ao contrato, um cliente por papel.
  *
- * Cada papel assina com a própria carteira — é isso que faz o controle de
+ * Cada papel assina com a própria carteira, e é isso que faz o controle de
  * acesso do contrato valer na prática: o backend simplesmente não tem como
  * reportar um voo pela companhia, porque a função exige a assinatura do
  * oráculo.

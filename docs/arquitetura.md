@@ -1,7 +1,7 @@
 # Arquitetura do AcordoInstant
 
 Seguro paramétrico de atraso de voo em contrato inteligente. Este documento
-descreve os componentes, quem pode fazer o quê e — o ponto central — onde
+descreve os componentes, quem pode fazer o quê e, o ponto central, onde
 está a fronteira entre o que vai para a blockchain e o que fica fora dela.
 
 Os diagramas estão em [`diagramas/`](./diagramas/):
@@ -33,22 +33,22 @@ não há pedido a fazer e não há processo a distribuir.
 
 Cada papel tem uma carteira própria, derivada na implantação
 (`deploy/contas.js`). O controle de acesso do contrato é o que impede que um
-papel faça o trabalho de outro — não é uma convenção do backend.
+papel faça o trabalho de outro. Não é uma convenção do backend.
 
-**Companhia aérea** (conta #0) — cadastra o voo, registra a venda da passagem
+**Companhia aérea** (conta #0): cadastra o voo, registra a venda da passagem
 vinculada ao contrato e deposita a garantia de cada bilhete. Depois disso, não
 decide mais nada sobre aquele bilhete.
 
-**Oráculo** (conta #1) — única conta autorizada a escrever o horário real de
+**Oráculo** (conta #1): única conta autorizada a escrever o horário real de
 chegada. Representa as fontes de dados oficiais (ANAC, Infraero, FlightStats)
 da proposta. É o que garante a imparcialidade: nem a companhia nem o
 passageiro conseguem declarar um atraso.
 
-**TJPB** (conta #2) — nó validador. Tem o endereço registrado no contrato e lê
+**TJPB** (conta #2): nó validador. Tem o endereço registrado no contrato e lê
 tudo pelas funções `view`, mas **não existe nenhuma função de escrita
 disponível a ele**. O Tribunal audita; não interfere.
 
-**Plataforma** (conta #3) — vincula o hash do CPF à carteira que o cliente
+**Plataforma** (conta #3): vincula o hash do CPF à carteira que o cliente
 informa no cadastro. É o único ponto em que uma conta operacional age em nome
 do passageiro, e ainda assim ela não escolhe valores: apenas destrava crédito
 que já pertencia àquele CPF.
@@ -59,12 +59,12 @@ Esta é a decisão de projeto mais importante do sistema.
 
 ### O que vai para a blockchain
 
-- **Termos do contrato** — `LIMIAR_ATRASO_HORAS` e `VALOR_INDENIZACAO` são
+- **Termos do contrato**: `LIMIAR_ATRASO_HORAS` e `VALOR_INDENIZACAO` são
   constantes públicas. Qualquer parte lê a mesma regra.
-- **Identificação do bilhete** — `keccak256(hash do voo, hash do CPF)`.
-- **Status do voo** — horário previsto, horário real e atraso apurado.
-- **Confirmação de pagamento** — evento `IndenizacaoDepositada`.
-- **Termo de quitação** — evento `QuitacaoEmitida`, com valor, atraso e
+- **Identificação do bilhete**: `keccak256(hash do voo, hash do CPF)`.
+- **Status do voo**: horário previsto, horário real e atraso apurado.
+- **Confirmação de pagamento**: evento `IndenizacaoDepositada`.
+- **Termo de quitação**: evento `QuitacaoEmitida`, com valor, atraso e
   instante.
 
 ### O que nunca vai para a blockchain
@@ -100,7 +100,7 @@ demonstração rodar sem configuração.
 4. Se o CPF já tem carteira vinculada, o valor é depositado direto nela. Se
    não tem, fica retido em nome do hash do CPF.
 5. Quando essa pessoa se cadastra informando a chave pública, o contrato
-   vincula a carteira e deposita tudo o que estava retido — na mesma
+   vincula a carteira e deposita tudo o que estava retido, na mesma
    transação do cadastro.
 
 O passageiro nunca assina uma transação e nunca pede o dinheiro. Não existe
@@ -115,7 +115,7 @@ uma indenização a que tem direito. Os testes cobrem os dois lados da borda
 
 ## A janela de embarque
 
-Assim que o oráculo apura um voo, o contrato passa a recusar novos bilhetes —
+Assim que o oráculo apura um voo, o contrato passa a recusar novos bilhetes,
 o que é correto: não se vende seguro para um voo que já pousou.
 
 Isso cria um detalhe operacional: se o oráculo apurasse imediatamente, a
@@ -134,7 +134,7 @@ Toda movimentação vira log, no terminal e em `logs/blockchain.log`.
 O `backend/src/log/observador.js` não registra o que o backend *pediu*, e sim
 o que a cadeia *executou*: ele lê os logs do contrato bloco a bloco. A
 diferença importa porque o oráculo roda em outro fluxo e o contrato dispara
-vários pagamentos dentro de uma única transação — nada disso apareceria se o
+vários pagamentos dentro de uma única transação, e nada disso apareceria se o
 log fosse escrito no ponto de chamada.
 
 No arranque, o histórico é apenas indexado, sem reimprimir: reiniciar o
@@ -142,7 +142,7 @@ backend não duplica o arquivo de log.
 
 ## Escolha da rede
 
-A proposta indica uma rede permissionada — a Rede Blockchain Brasil (RBB) —
+A proposta indica uma rede permissionada, a Rede Blockchain Brasil (RBB),
 priorizando segurança e escalabilidade sobre descentralização total, com custo
 de transação zero ou previsível.
 

@@ -1,7 +1,7 @@
 import { getAddress, isAddress } from "ethers";
 
 import { cpfValido, formatarCpf, hashCpf, normalizarCpf } from "../../../lib/cpf.js";
-import { brl, eth } from "../../../lib/formato.js";
+import { brl } from "../../../lib/formato.js";
 import { conflito, erroDeUso, naoEncontrado, traduzirErroDeContrato } from "../erros.js";
 
 /**
@@ -56,7 +56,7 @@ export function criarServicoDoCliente({ acesso, consultas, clientes }) {
         throw conflito("Este CPF ja esta vinculado a outra carteira na blockchain");
       }
 
-      // O vínculo on-chain existe, mas o cadastro local não — acontece
+      // O vínculo on-chain existe, mas o cadastro local não. Acontece
       // quando o estado off-chain é zerado com a rede no ar. Recriar o
       // registro é melhor do que deixar a pessoa sem acesso a um dinheiro
       // que o contrato já reconhece como dela.
@@ -115,7 +115,6 @@ export function criarServicoDoCliente({ acesso, consultas, clientes }) {
 
     const hash = cliente.hashCpf;
     const [depositado, retido] = await contrato.resumoDoCpf(hash);
-    const saldoCarteira = await acesso.provedor.getBalance(cliente.carteira);
 
     const ids = await contrato.listarBilhetesDoCpf(hash);
     const viagens = [];
@@ -149,11 +148,10 @@ export function criarServicoDoCliente({ acesso, consultas, clientes }) {
         depositado: brl(depositado),
         depositadoWei: depositado.toString(),
         // Só aparece se algo tiver sido apurado entre o cadastro e agora
-        // sem carteira vinculada — na prática, sempre zero após o cadastro.
+        // sem carteira vinculada. Na prática, sempre zero após o cadastro.
         aguardandoCadastro: brl(retido),
         viagens: viagens.length,
-        indenizadas: viagens.filter((viagem) => viagem.indenizado).length,
-        saldoDaCarteira: eth(saldoCarteira)
+        indenizadas: viagens.filter((viagem) => viagem.indenizado).length
       },
       viagens: viagens.reverse()
     };

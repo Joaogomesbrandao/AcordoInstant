@@ -1,5 +1,5 @@
 /**
- * Base de voos do oráculo — o "FlightStats/ANAC" deste protótipo.
+ * Base de voos do oráculo: o "FlightStats/ANAC" deste protótipo.
  *
  * É a fonte de dados externa e neutra prevista na proposta: fica fora da
  * blockchain e é a única origem do horário real de chegada. Nem a companhia

@@ -4,7 +4,7 @@ import { brl, curto, duracao } from "../../../lib/formato.js";
 /**
  * Leitura da cadeia para os três painéis.
  *
- * Tudo o que vira número ou status vem do contrato — é a versão que o TJPB
+ * Tudo o que vira número ou status vem do contrato, que é a versão que o TJPB
  * auditaria. O que vem da base do oráculo (rota, aeroportos, nome comercial
  * da companhia) é só contexto de exibição, e está marcado como tal.
  */

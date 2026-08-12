@@ -2,7 +2,7 @@
 
 Seguro paramétrico de atraso de voo em contrato inteligente.
 
-**Tarefa final** — Blockchain, Contratos Inteligentes e Direito, ESMA-PB 2026.
+**Tarefa final** de Blockchain, Contratos Inteligentes e Direito, ESMA-PB 2026.
 Proposta em [`Projeto3_AcordoInstant_proposta.pdf`](./Projeto3_AcordoInstant_proposta.pdf).
 
 ## O problema
@@ -19,7 +19,7 @@ Se o voo atrasa mais de **4 horas**, o contrato deposita **R$ 500,00** na
 carteira do passageiro. Automaticamente, sem pedido, sem análise humana e sem
 processo.
 
-O passageiro não assina transação nenhuma e não tem botão de saque — só
+O passageiro não assina transação nenhuma e não tem botão de saque: só
 informa sua chave pública. Se o voo atrasou antes de ele ter conta, o valor
 fica guardado em nome do CPF dele e é depositado no instante do cadastro.
 
@@ -49,13 +49,13 @@ Requer Node.js 22+.
 ```bash
 npm install && npm --prefix frontend install
 
-npm run chain     # terminal 1 — rede local
-npm run deploy    # terminal 2 — implanta e configura tudo
-npm run dev       # terminal 2 — backend :3001 + frontend :3000
+npm run chain     # terminal 1: rede local
+npm run deploy    # terminal 2: implanta e configura tudo
+npm run dev       # terminal 2: backend :3001 + frontend :3000
 ```
 
 Abra `http://localhost:3000`. O deploy grava o endereço do contrato onde o
-backend e o frontend leem — não há endereço para copiar em `.env` nenhum.
+backend e o frontend leem, e não há endereço para copiar em `.env` nenhum.
 
 O roteiro completo da demonstração está em [`docs/uso.md`](./docs/uso.md).
 
@@ -65,7 +65,7 @@ O roteiro completo da demonstração está em [`docs/uso.md`](./docs/uso.md).
 |---|---|
 | **Passageiro** | Cadastra-se com nome, CPF e chave pública; acompanha os voos e vê quanto já recebeu |
 | **Companhia aérea** | Embarca passageiros (depositando a garantia) e resgata as garantias de voos pontuais |
-| **TJPB** | Audita a cópia do registro e os termos de quitação — sem nenhuma ação de escrita |
+| **TJPB** | Audita a cópia do registro e os termos de quitação, sem nenhuma ação de escrita |
 
 ## LGPD: nenhum dado pessoal na cadeia
 
@@ -89,7 +89,7 @@ Toda movimentação da blockchain é impressa no terminal e gravada em
                                 quitacao dos danos materiais imediatos em 12/08 16:59
 ```
 
-O log é lido da própria cadeia, bloco a bloco — registra o que o contrato
+O log é lido da própria cadeia, bloco a bloco: registra o que o contrato
 executou, não o que o backend pediu.
 
 ## Estrutura
@@ -107,7 +107,7 @@ logs/                     Registro das movimentações (gerado)
 
 ## Documentação
 
-- [Arquitetura](./docs/arquitetura.md) — componentes, papéis e a fronteira
+- [Arquitetura](./docs/arquitetura.md): componentes, papéis e a fronteira
   on-chain/off-chain
 - [Diagrama de componentes](./docs/diagramas/componentes.md)
 - [Diagrama de sequência](./docs/diagramas/sequencia.md)
@@ -118,7 +118,7 @@ logs/                     Registro das movimentações (gerado)
 ## Rede
 
 Rede local (Hardhat Network, chainId 31337). A proposta indica a Rede
-Blockchain Brasil — permissionada, priorizando segurança e escalabilidade
+Blockchain Brasil, permissionada, priorizando segurança e escalabilidade
 sobre descentralização total, com custo de transação previsível. O que mudaria
 lá é o endpoint e a governança dos nós; o contrato e os papéis são os mesmos.
 O TJPB, que aqui é uma conta com acesso de leitura, lá seria um nó validador.
@@ -138,9 +138,9 @@ CPF sem cadastro e a liberação automática no momento do cadastro.
 Entregue: o contrato completo, os três painéis, o oráculo com apuração
 automática, o sistema de logs, os diagramas e a suíte de testes.
 
-As limitações deliberadas — vínculo CPF↔carteira sem validação documental,
+As limitações deliberadas (vínculo CPF↔carteira sem validação documental,
 oráculo único, base de voos mockada e ausência de autenticação institucional
-nas telas — estão detalhadas em
+nas telas) estão detalhadas em
 [docs/arquitetura.md § Limitações conhecidas](./docs/arquitetura.md#limitações-conhecidas).
 
 ## Uso de Inteligência Artificial

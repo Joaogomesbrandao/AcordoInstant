@@ -37,7 +37,7 @@ export function TelaLogin({ aoEntrar }: { aoEntrar: (perfil: Perfil) => void }) 
 
           <p className="login-sub">
             Se o voo atrasa mais de 4 horas, o contrato inteligente deposita a indenização na
-            carteira do passageiro — sem processo, sem advogado e sem pedir nada ao Juizado. O
+            carteira do passageiro, sem processo, sem advogado e sem pedir nada ao Juizado. O
             Tribunal recebe a cópia do registro e o termo de quitação.
           </p>
 

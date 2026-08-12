@@ -70,7 +70,7 @@ reconfigura as duas pontas.
 npm run dev
 ```
 
-Backend em `http://127.0.0.1:3001` e frontend em `http://localhost:3000` — é
+Backend em `http://127.0.0.1:3001` e frontend em `http://localhost:3000`. É
 essa a URL para abrir no navegador. O oráculo sobe junto com o backend e
 começa a apurar voos sozinho.
 
@@ -81,7 +81,7 @@ npm run seed
 ```
 
 Embarca passageiros em voos com os três desfechos e **não** cadastra nenhum
-cliente — deixando o cenário mais interessante montado: indenizações retidas
+cliente, deixando o cenário mais interessante montado: indenizações retidas
 esperando alguém se cadastrar. Os CPFs usados são impressos ao final.
 
 ## De onde vêm as carteiras
@@ -95,11 +95,11 @@ Todas são derivadas do mnemônico padrão do Hardhat
 | #1 | Oráculo |
 | #2 | TJPB (nó validador) |
 | #3 | Plataforma |
-| #4 – #8 | Cinco carteiras de teste de passageiros |
+| #4 a #8 | Cinco carteiras de teste de passageiros |
 
 Ninguém precisa copiar chave privada: deploy, backend, oráculo e testes
 derivam as mesmas contas. As cinco carteiras de passageiro são apenas
-geradas — nenhum usuário nasce cadastrado no sistema.
+geradas: nenhum usuário nasce cadastrado no sistema.
 
 > Esse mnemônico é público e conhecido. Vale só para a rede local
 > descartável; nunca reaproveitar em rede pública.

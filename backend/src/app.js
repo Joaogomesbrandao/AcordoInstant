@@ -9,7 +9,7 @@ import { ErroApi } from "./erros.js";
  *
  * Uma rota por ação de cada perfil, e nada além disso. O frontend não fala
  * com a blockchain: quem assina é sempre o backend, com a carteira do papel
- * correspondente, e quem lê a cadeia também é o backend — assim existe um
+ * correspondente, e quem lê a cadeia também é o backend, assim existe um
  * único lugar onde o ABI e os endereços importam.
  */
 export function criarApp({ config, cliente, companhia, tribunal, oraculo, observador, acesso }) {
@@ -64,7 +64,7 @@ export function criarApp({ config, cliente, companhia, tribunal, oraculo, observ
    *
    * Existe para a demonstração: a tela de cadastro do cliente oferece esses
    * endereços em vez de exigir que alguém copie do terminal. Nenhuma delas
-   * nasce vinculada a um CPF — o vínculo só acontece no cadastro.
+   * nasce vinculada a um CPF; o vínculo só acontece no cadastro.
    */
   app.get(
     "/api/carteiras-de-teste",
@@ -105,9 +105,15 @@ export function criarApp({ config, cliente, companhia, tribunal, oraculo, observ
     rota((req) => companhia.cadastrarVoo(req.body?.codigo), { registrar: true })
   );
 
+  /**
+   * Embarca a lista inteira de passageiros de um voo de uma vez.
+   *
+   * Registrar um por um deixaria o oráculo apurar o voo no meio do
+   * embarque, e o contrato passaria a recusar os passageiros restantes.
+   */
   app.post(
     "/api/companhia/passageiros",
-    rota((req) => companhia.embarcarPassageiro(req.body ?? {}), { registrar: true })
+    rota((req) => companhia.embarcarPassageiros(req.body ?? {}), { registrar: true })
   );
 
   app.post(
@@ -133,7 +139,7 @@ export function criarApp({ config, cliente, companhia, tribunal, oraculo, observ
    * Dispara uma apuração imediata.
    *
    * O oráculo já roda sozinho em intervalo fixo; esta rota existe para a
-   * demonstração não depender do relógio — mesmo assim, quem reporta é a
+   * demonstração não depender do relógio. Mesmo assim, quem reporta é a
    * conta do oráculo, e o horário continua vindo da base externa.
    */
   app.post(

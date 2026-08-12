@@ -18,7 +18,7 @@ pragma solidity ^0.8.24;
  *        só "acredita" no dado dessa fonte neutra.
  *
  *      - TJPB: nó validador. Tem o endereço registrado aqui e lê tudo pelas
- *        funções `view`, mas não possui nenhuma função que altere estado —
+ *        funções `view`, mas não possui nenhuma função que altere estado:
  *        o Tribunal audita, não interfere no processo.
  *
  *      - PLATAFORMA: vincula o hash do CPF à carteira informada pelo cliente

@@ -5,7 +5,7 @@ import path from "node:path";
 import { hashCpf, normalizarCpf } from "../../../lib/cpf.js";
 
 /**
- * Cadastro dos clientes — a única parte do sistema que guarda dado pessoal.
+ * Cadastro dos clientes: a única parte do sistema que guarda dado pessoal.
  *
  * Nome e CPF em claro ficam aqui, fora da blockchain. Para a cadeia só vai
  * `hashCpf`, e é por ele que o contrato reserva e deposita a indenização.

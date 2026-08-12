@@ -145,7 +145,7 @@ async function main() {
   // --- Configuração do frontend --------------------------------------------
 
   const arquivoFrontend = path.join(RAIZ, "frontend", "src", "rede.config.ts");
-  const conteudoFrontend = `// Arquivo gerado por deploy/deploy.js — nao editar a mao.
+  const conteudoFrontend = `// Arquivo gerado por deploy/deploy.js, nao editar a mao.
 // Regerado a cada 'npm run deploy'.
 export const REDE = {
   nome: '${networkName}',

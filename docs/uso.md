@@ -5,24 +5,30 @@ Assume a rede no ar e a aplicação rodando (ver [`deploy.md`](./deploy.md)).
 
 Abra `http://localhost:3000`. A tela inicial oferece os três perfis.
 
-## 1. Companhia aérea — vender a passagem e depositar a garantia
+## 1. Companhia aérea: vender a passagem e depositar a garantia
 
 Entre como **Sou companhia aérea**.
 
-No formulário *Embarcar passageiro*:
+No bloco *Embarcar passageiros*:
 
-1. Escolha um voo com atraso grande, por exemplo **G31702** (REC → BSB,
-   atraso real de 4 h 45).
-2. Nome: `Ana Souza`.
-3. CPF: `111.444.777-35`.
-4. Clique em **Embarcar e depositar R$ 500,00**.
+1. Escolha o voo. A lista já mostra o desfecho de cada um, porque a base do
+   oráculo conhece o horário real de chegada:
+   - 🔴 **ATRASADO** em vermelho: passa das 4 horas e vai indenizar;
+   - 🟢 **NO PRAZO** em verde: a garantia volta para a companhia.
 
-O painel mostra o voo com o selo *Aguardando oráculo* e R$ 500,00 em escrow.
-No terminal, o log registra o cadastro do voo e o bilhete.
+   Para esta primeira passagem, escolha **G31702** (REC → BSB, atraso de
+   4 h 45).
+2. Preencha `Ana Souza`, CPF `111.444.777-35`, e clique em **Adicionar à
+   lista**.
+3. Adicione um segundo: `Bruno Lima`, CPF `222.555.888-46`.
+4. Clique em **Confirmar embarque e depositar R$ 500,00 × 2**.
 
-> Aproveite a janela de embarque (15 s) para embarcar um segundo passageiro no
-> mesmo voo — por exemplo `Bruno Lima`, CPF `222.555.888-46`. Depois que o
-> oráculo apura, o contrato recusa novos bilhetes naquele voo.
+Só neste último passo alguma coisa vai para a blockchain. Montar a lista antes
+de confirmar é o que garante que o voo inteiro embarque de uma vez, sem o
+oráculo apurar no meio do caminho.
+
+O painel mostra o voo com o selo *Aguardando oráculo* e R$ 1.000,00 em escrow.
+No terminal, o log registra o cadastro do voo e os dois bilhetes.
 
 Repita para um voo pontual, por exemplo **AD4021** (JPA → GRU, chegou
 adiantado), para ver o outro desfecho.
@@ -45,8 +51,8 @@ No terminal:
 16:59:34  QUITACAO EMITIDA      G31702 · R$ 500,00 · atraso 4h45 · passageiro 0x7ea2…8b5d
                                 quitacao dos danos materiais imediatos em 12/08 16:59
 16:59:34  CHEGADA REPORTADA     AD4021 · prevista 03/08 09:45 · real 03/08 09:40 · atraso no horario · PONTUAL
-                                garantias devolvidas a companhia · tx 0xb835…4afe · bloco 8 · gas 90.429
-16:59:34  GARANTIA DEVOLVIDA    AD4021 · R$ 500,00 liberados para 0xf39F…2266 · voo pontual
+                                sem direito a indenizacao: garantias devolvidas a companhia · tx 0xb835…4afe · bloco 8
+16:59:34  GARANTIA DEVOLVIDA    AD4021 · R$ 500,00 liberados para 0xf39F…2266 · atraso dentro do limite
                                 saldo resgatavel R$ 500,00
 ```
 
@@ -56,7 +62,7 @@ contrato guardou o dinheiro em nome do hash do CPF dela.
 Ainda no painel da companhia, o bloco *Garantias liberadas* mostra R$ 500,00
 disponíveis. Clique em **Resgatar para a carteira**.
 
-## 3. Passageiro — o dinheiro cai no cadastro
+## 3. Passageiro: o dinheiro cai no cadastro
 
 Clique em **Trocar perfil** e entre como **Sou passageiro** → aba **Criar
 conta**:
@@ -67,7 +73,7 @@ conta**:
    (ex.: `0x15d3…6A65`)
 
 Ao confirmar, o painel abre já mostrando **R$ 500,00 já depositado na sua
-carteira** e o saldo da carteira em `10.000,5 ETH`.
+carteira**.
 
 Não houve botão de saque em momento algum. O contrato vinculou a carteira ao
 hash do CPF e depositou o valor retido na mesma transação do cadastro:
@@ -81,7 +87,7 @@ hash do CPF e depositou o valor retido na mesma transação do cadastro:
 A lista de voos mostra os dois voos: o atrasado com *Indenização depositada* e
 `+R$ 500,00`; o pontual com *Voo dentro do prazo · sem indenização*.
 
-## 4. TJPB — auditar sem interferir
+## 4. TJPB: auditar sem interferir
 
 **Trocar perfil** → **Sou o TJPB**.
 
@@ -92,7 +98,7 @@ por bilhete, o valor, o instante e o hash da transação.
 É o que o Tribunal consultaria se a mesma pessoa ingressasse no Juizado
 pedindo indenização por um atraso já quitado automaticamente.
 
-Note que o painel não tem nenhum botão de ação — não por omissão da
+Note que o painel não tem nenhum botão de ação, e não por omissão da
 interface, mas porque o contrato não oferece nenhuma função de escrita ao
 TJPB.
 

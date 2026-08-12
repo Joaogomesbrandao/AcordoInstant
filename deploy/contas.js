@@ -8,7 +8,7 @@ import { HDNodeWallet, Mnemonic } from "ethers";
  * privada para lugar nenhum: o deploy, o backend, o oráculo e os testes
  * derivam exatamente as mesmas contas, sempre nos mesmos índices.
  *
- * Este mnemônico é público e conhecido — vale só para a rede local
+ * Este mnemônico é público e conhecido, vale só para a rede local
  * descartável. Nunca reaproveitar em rede pública.
  */
 export const MNEMONICO_PADRAO =
@@ -69,7 +69,7 @@ export function carteiraDoPapel(papel) {
  *
  * Elas são apenas geradas: nenhum usuário nasce cadastrado no sistema. O
  * cliente só passa a existir quando informa nome, CPF e a chave pública na
- * tela de cadastro — que é justamente o momento em que qualquer indenização
+ * tela de cadastro, que é justamente o momento em que qualquer indenização
  * já retida para o CPF dele é depositada.
  */
 export function carteirasDeTeste() {
