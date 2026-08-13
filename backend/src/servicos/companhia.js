@@ -11,7 +11,7 @@ import { conflito, erroDeUso, naoEncontrado, traduzirErroDeContrato } from "../e
  * partir daí ela não decide mais nada: quem apura o voo é o oráculo, e o
  * destino do dinheiro sai da regra registrada no contrato.
  */
-export function criarServicoDaCompanhia({ acesso, consultas, manifesto }) {
+export function criarServicoDaCompanhia({ acesso, consultas, manifesto, oraculo = null }) {
   const contrato = acesso.leitura;
 
   async function valorDaGarantia() {
@@ -79,6 +79,11 @@ export function criarServicoDaCompanhia({ acesso, consultas, manifesto }) {
         paraTimestamp(dados.chegadaPrevista)
       );
       const recibo = await transacao.wait();
+
+      // Marca o início da janela de embarque com precisão de milissegundo. O
+      // `block.timestamp` também serviria, mas ele trunca a fração do
+      // segundo e encurtaria a espera em até um segundo inteiro.
+      oraculo?.marcarCadastro(vooId);
 
       return { codigo: dados.codigo, vooId, txHash: recibo.hash, bloco: recibo.blockNumber };
     } catch (erro) {

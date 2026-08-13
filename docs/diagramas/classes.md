@@ -30,7 +30,9 @@ classDiagram
         %% -- Oráculo --
         +reportarChegada(codigo, chegadaReal) StatusVoo
         %% -- Plataforma --
-        +vincularCarteira(hashCpf, carteira)
+        +vincularCarteira(hashCpf, carteira) uint256
+        %% -- Titular da carteira ou plataforma --
+        +sacarCreditoRetido(hashCpf) uint256
         %% -- Interno --
         -_indenizar(bilheteId, atrasoMinutos)
         -_devolverGarantia(bilheteId, companhia)
@@ -104,7 +106,8 @@ Os eventos são a fonte dos logs do sistema e do painel de auditoria do TJPB.
 | `IndenizacaoRetida` | CPF sem cadastro | Valor reservado, não perdido |
 | `QuitacaoEmitida` | Junto ao pagamento | Termo de quitação dos danos materiais |
 | `GarantiaLiberadaParaCompanhia` | Voo no prazo | Garantia devolvida |
-| `CarteiraVinculada` | Cliente se cadastra | Vínculo CPF ↔ carteira |
+| `CarteiraVinculada` | Cliente se cadastra | Vínculo CPF ↔ carteira, com o valor pendente |
+| `CreditoRetidoSacado` | Cliente saca o pendente | Fim da pendência: daí em diante é automático |
 | `GarantiaResgatada` | Companhia saca | Saída de valor para a companhia |
 
 ## Controle de acesso
@@ -116,7 +119,12 @@ Os eventos são a fonte dos logs do sistema e do painel de auditoria do TJPB.
 | `resgatarGarantias` | Só quem tem saldo liberado | `saldoLiberado[msg.sender]` |
 | `reportarChegada` | Só o oráculo | `modifier somenteOraculo` |
 | `vincularCarteira` | Só a plataforma | `modifier somentePlataforma` |
+| `sacarCreditoRetido` | Titular da carteira ou plataforma | `msg.sender == carteiraDoCpf` ou `plataforma` |
 | Todas as `view` | Qualquer um, inclusive o TJPB | Sem restrição |
+
+Mesmo `sacarCreditoRetido`, a função menos restrita entre as de escrita, não
+permite desviar dinheiro: o destino é sempre `carteiraDoCpf[hashCpf]`, e não
+um endereço passado por parâmetro.
 
 O TJPB não aparece em nenhuma linha da coluna de escrita: é a tradução, em
 código, do papel de validador que audita sem interferir.

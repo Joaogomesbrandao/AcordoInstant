@@ -99,7 +99,10 @@ export interface PainelCliente {
   totais: {
     depositado: string;
     depositadoWei: string;
-    aguardandoCadastro: string;
+    /** Apurado antes de o CPF ter carteira vinculada; sacável uma única vez. */
+    pendente: string;
+    pendenteWei: string;
+    temPendencia: boolean;
     viagens: number;
     indenizadas: number;
   };
@@ -162,8 +165,9 @@ export interface PainelTribunal {
 
 export interface CadastroResultado {
   cliente: Cliente;
-  liberadoNoCadastro: string;
-  liberadoNoCadastroWei: string;
-  txHash: string;
-  bloco: number;
+  /** Valor que já estava reservado para o CPF e ficou disponível para saque. */
+  pendente: string;
+  pendenteWei?: string;
+  txHash: string | null;
+  bloco: number | null;
 }

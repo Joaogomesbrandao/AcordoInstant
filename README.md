@@ -19,9 +19,10 @@ Se o voo atrasa mais de **4 horas**, o contrato deposita **R$ 500,00** na
 carteira do passageiro. Automaticamente, sem pedido, sem análise humana e sem
 processo.
 
-O passageiro não assina transação nenhuma e não tem botão de saque: só
-informa sua chave pública. Se o voo atrasou antes de ele ter conta, o valor
-fica guardado em nome do CPF dele e é depositado no instante do cadastro.
+O passageiro não assina transação nenhuma: só informa sua chave pública. Se o
+voo atrasou antes de ele ter conta, o valor fica guardado em nome do CPF dele
+e ele o recebe com um único clique ao se cadastrar. Dali em diante, todo
+depósito é automático.
 
 O TJPB recebe uma cópia do registro e o **termo de quitação** de cada
 pagamento: a prova a ser consultada caso a mesma pessoa ingresse no Juizado
@@ -30,9 +31,10 @@ por um dano já quitado.
 ## Como funciona
 
 ```
-Companhia embarca o passageiro  →  R$ 500,00 travados no escrow
+Companhia embarca os passageiros  →  R$ 500,00 travados por bilhete
                 ↓
-Oráculo apura o voo (fonte externa, fora da cadeia)
+   7 s depois, o oráculo lê o horário real na fonte
+   externa e escreve no contrato (sem ação humana)
                 ↓
         atraso > 4 h ?
        ↙                ↘
@@ -96,12 +98,13 @@ executou, não o que o backend pediu.
 
 ```
 contracts/SeguroVoo.sol   Contrato: termos, escrow, execução e quitação
-deploy/                   Implantação e derivação das carteiras dos papéis
+deploy/                   Scripts de implantação e derivação das carteiras
+rede/                     Registro do que foi implantado (endereço, papéis)
 backend/                  API dos três perfis, assinatura e observador da cadeia
 oracle/                   Base de 20 voos e o serviço que apura on-chain
 frontend/                 React + TypeScript, um painel por perfil
 docs/                     Arquitetura, diagramas, deploy e roteiro de uso
-test/                     30 testes do contrato
+test/                     35 testes do contrato
 logs/                     Registro das movimentações (gerado)
 ```
 
@@ -129,9 +132,10 @@ O TJPB, que aqui é uma conta com acesso de leitura, lá seria um nó validador.
 npm test
 ```
 
-30 testes cobrindo o controle de acesso de cada papel, as bordas da regra
+35 testes cobrindo o controle de acesso de cada papel, as bordas da regra
 (4 h 05 indeniza, 4 h 00 não), o depósito direto na carteira, a retenção para
-CPF sem cadastro e a liberação automática no momento do cadastro.
+CPF sem cadastro, o saque único do que ficou retido e o depósito automático de
+todos os voos seguintes.
 
 ## Escopo do protótipo
 

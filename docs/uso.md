@@ -23,23 +23,30 @@ No bloco *Embarcar passageiros*:
 3. Adicione um segundo: `Bruno Lima`, CPF `222.555.888-46`.
 4. Clique em **Confirmar embarque e depositar R$ 500,00 × 2**.
 
-Só neste último passo alguma coisa vai para a blockchain. Montar a lista antes
-de confirmar é o que garante que o voo inteiro embarque de uma vez, sem o
-oráculo apurar no meio do caminho.
+Só neste último passo alguma coisa vai para a blockchain.
 
 O painel mostra o voo com o selo *Aguardando oráculo* e R$ 1.000,00 em escrow.
 No terminal, o log registra o cadastro do voo e os dois bilhetes.
+
+> Monte a lista com calma: nada vai para a blockchain antes de você confirmar,
+> e a contagem dos 7 segundos só começa quando o voo entra na cadeia, no
+> primeiro embarque confirmado.
 
 Repita para um voo pontual, por exemplo **AD4021** (JPA → GRU, chegou
 adiantado), para ver o outro desfecho.
 
 ## 2. O oráculo apura sozinho
 
-Não faça nada. Em poucos segundos o painel muda sozinho:
+Não faça nada. Sete segundos depois do cadastro do voo, o oráculo consulta a
+base externa, escreve o horário real no contrato e o painel muda sozinho:
 
 - **G31702** passa a *Atrasado 4h45*, e cada passageiro aparece com
   "R$ 500,00 pagos ao passageiro";
 - **AD4021** passa a *Pontual*, e a garantia aparece como devolvida.
+
+> São 7 segundos contados a partir do **cadastro do voo**, não do último
+> passageiro. É a janela para terminar o embarque: depois de apurado, o
+> contrato recusa novos bilhetes naquele voo.
 
 No terminal:
 
@@ -72,20 +79,36 @@ conta**:
 3. Chave pública: escolha uma das carteiras de teste sugeridas no campo
    (ex.: `0x15d3…6A65`)
 
-Ao confirmar, o painel abre já mostrando **R$ 500,00 já depositado na sua
-carteira**.
+Ao confirmar, o painel abre com um aviso em destaque: **R$ 500,00** e o botão
+**Receber valores pendentes**.
 
-Não houve botão de saque em momento algum. O contrato vinculou a carteira ao
-hash do CPF e depositou o valor retido na mesma transação do cadastro:
+Esse valor foi apurado quando a Ana ainda não tinha conta, então não havia
+carteira para receber e o contrato o guardou em nome do hash do CPF dela.
+Clique em **Receber valores pendentes**.
 
 ```
 17:02:11  CARTEIRA VINCULADA    passageiro 0x7ea2…8b5d · carteira 0x15d3…6A65
-                                creditos retidos serao depositados nesta carteira
-17:02:11  INDENIZACAO PAGA      G31702 · R$ 500,00 depositados em 0x15d3…6A65 · passageiro 0x7ea2…8b5d
+                                R$ 500,00 pendentes de saque (apurados antes do cadastro)
+17:02:14  PENDENTES SACADOS     passageiro 0x7ea2…8b5d · R$ 500,00 depositados em 0x15d3…6A65
+                                a partir daqui todo pagamento e automatico
 ```
 
-A lista de voos mostra os dois voos: o atrasado com *Indenização depositada* e
-`+R$ 500,00`; o pontual com *Voo dentro do prazo · sem indenização*.
+O botão some, e não volta mais. A lista mostra os dois voos: o atrasado com
+*Indenização depositada* e `+R$ 500,00`; o pontual com *Voo dentro do prazo ·
+sem indenização*.
+
+### Prove que o saque foi só aquela vez
+
+Volte ao painel da companhia, embarque a mesma Ana (CPF `111.444.777-35`) em
+**AD5310** (atraso de 5 h 35) e espere a apuração.
+
+Ao voltar para o painel dela, o total depositado já subiu para R$ 1.000,00 e
+**nenhum botão apareceu**. Com a carteira vinculada, o contrato deposita
+direto:
+
+```
+14:29:49  INDENIZACAO PAGA      AD5310 · R$ 500,00 depositados em 0x15d3…6A65 · passageiro 0x7ea2…8b5d
+```
 
 ## 4. TJPB: auditar sem interferir
 
@@ -120,8 +143,9 @@ sobre o minuto, e não sobre a hora arredondada.
 
 ## Se algo não acontecer
 
-**O painel não muda depois de embarcar.** O oráculo respeita a janela de
-embarque de 15 s antes de apurar. Espere, ou force com:
+**O painel não muda depois de embarcar.** Espere: a apuração acontece
+7 segundos após o cadastro do voo, e a tela se atualiza a cada 2 segundos.
+Para não esperar, force a apuração de todos os pendentes:
 
 ```bash
 curl -X POST http://127.0.0.1:3001/api/oraculo/apurar
@@ -129,6 +153,10 @@ curl -X POST http://127.0.0.1:3001/api/oraculo/apurar
 
 **"Voo já foi apurado e não aceita novos passageiros".** Correto: aquele voo
 já pousou. Escolha outro código na lista.
+
+**O botão "Receber valores pendentes" não aparece.** Ele só existe quando há
+valor apurado antes do cadastro. Se o cliente se cadastrou antes de o voo
+atrasar, o depósito é automático e não há nada a sacar.
 
 **"Este CPF já possui cadastro".** Use a aba **Entrar** com o mesmo CPF, ou
 rode `npm run reset` para zerar os cadastros.

@@ -28,6 +28,7 @@ não há pedido a fazer e não há processo a distribuir.
 | `backend/` | Fora da cadeia | API dos três perfis, assinatura por papel, dados pessoais e logs |
 | `frontend/` | Navegador | Telas do passageiro, da companhia e do TJPB |
 | `deploy/` | Script | Implanta o contrato e deriva as carteiras dos papéis |
+| `rede/` | Arquivo | Registro da implantação: endereço do contrato e papéis |
 
 ## Os quatro papéis
 
@@ -88,10 +89,12 @@ demonstração rodar sem configuração.
 
 ## O fluxo
 
-1. A companhia embarca o passageiro: `registrarBilhete(codigo, hashCpf)` com
-   `msg.value` igual à indenização. O dinheiro fica travado no contrato.
-2. O oráculo varre os voos pendentes, encontra o código na base externa e
-   chama `reportarChegada(codigo, chegadaReal)`.
+1. A companhia embarca os passageiros do voo: `registrarBilhete(codigo,
+   hashCpf)` com `msg.value` igual à indenização, um por bilhete. O dinheiro
+   fica travado no contrato.
+2. Sete segundos depois do cadastro do voo, o oráculo o encontra pendente,
+   busca o código na base externa e chama
+   `reportarChegada(codigo, chegadaReal)`.
 3. O contrato calcula o atraso e aplica a regra **na mesma transação**:
    - acima de 4 h → cada passageiro do voo é indenizado e recebe um termo de
      quitação;
@@ -100,11 +103,28 @@ demonstração rodar sem configuração.
 4. Se o CPF já tem carteira vinculada, o valor é depositado direto nela. Se
    não tem, fica retido em nome do hash do CPF.
 5. Quando essa pessoa se cadastra informando a chave pública, o contrato
-   vincula a carteira e deposita tudo o que estava retido, na mesma
-   transação do cadastro.
+   vincula a carteira. O que já estava retido fica disponível para um saque
+   único; do cadastro em diante, tudo cai direto na carteira.
 
-O passageiro nunca assina uma transação e nunca pede o dinheiro. Não existe
-função de saque para ele no contrato: só existe depósito.
+O passageiro assina, no máximo, nada: quem envia as transações é sempre o
+backend, com a carteira do papel correspondente.
+
+### Por que existe um saque, e um só
+
+O contrato tem uma única função que o passageiro precisa acionar:
+`sacarCreditoRetido`. Ela existe porque um voo pode atrasar antes de a pessoa
+ter conta no sistema, e nesse momento não há carteira para receber. O valor
+fica reservado ao hash do CPF por tempo indeterminado.
+
+Depois desse saque, `creditoRetido` zera e não volta a crescer: com a carteira
+já vinculada, `_indenizar` deposita direto. É por isso que o botão **Sacar
+valores pendentes** aparece no máximo uma vez na vida de cada cliente, e some
+depois de usado.
+
+`sacarCreditoRetido` aceita a assinatura do próprio titular ou da plataforma,
+e em ambos os casos o dinheiro só pode ir para a carteira vinculada àquele
+CPF. No protótipo quem assina é a plataforma, porque o passageiro não tem
+chave privada.
 
 ### A comparação é feita em minutos
 
@@ -118,14 +138,26 @@ uma indenização a que tem direito. Os testes cobrem os dois lados da borda
 Assim que o oráculo apura um voo, o contrato passa a recusar novos bilhetes,
 o que é correto: não se vende seguro para um voo que já pousou.
 
-Isso cria um detalhe operacional: se o oráculo apurasse imediatamente, a
-companhia não conseguiria embarcar o segundo passageiro de um voo. Por isso o
-oráculo só apura voos cujo último bilhete foi registrado há mais de
-`JANELA_EMBARQUE_SEGUNDOS` (15 s por padrão).
+A consequência é que a apuração não pode acontecer no meio do embarque, ou a
+companhia ficaria impedida de registrar o segundo passageiro de um voo. Por
+isso o oráculo espera **7 segundos contados do cadastro do voo**
+(`ESPERA_APURACAO_SEGUNDOS`) antes de apurá-lo.
+
+O ponto de referência é o cadastro do voo, e não o último bilhete: assim a
+janela é sempre a mesma, previsível, em vez de se esticar a cada passageiro
+novo. Quem apresenta o sistema sabe exatamente quanto tempo tem.
+
+A verificação roda de segundo em segundo (`INTERVALO_ORACULO_SEGUNDOS`), então
+a apuração acontece praticamente no instante em que a janela fecha.
 
 O relógio de referência é o do sistema, e não o do último bloco: a rede local
 só avança `block.timestamp` quando mina, então uma rede parada deixaria a
 janela aberta para sempre.
+
+Nada disso passa a decisão para a companhia: ela controla o momento do
+cadastro, mas não o que é reportado. O horário real vem da base externa, e o
+contrato recusa `reportarChegada` assinada por qualquer conta que não seja a
+do oráculo.
 
 ## Logs
 

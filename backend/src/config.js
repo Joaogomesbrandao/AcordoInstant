@@ -9,8 +9,8 @@ dotenv.config();
  * Configuração do backend.
  *
  * O endereço do contrato e os endereços dos papéis não são digitados em
- * lugar nenhum: vêm de `deployments/<rede>.json`, gravado pelo próprio
- * script de deploy. O ABI vem direto de `artifacts/`, o que dispensa manter
+ * lugar nenhum: vêm de `rede/<rede>.json`, gravado pelo próprio script de
+ * deploy. O ABI vem direto de `artifacts/`, o que dispensa manter
  * uma cópia à mão e elimina a chance de ela ficar defasada em relação ao
  * contrato compilado.
  */
@@ -20,11 +20,11 @@ export const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const CAMINHO_ABI = path.join(RAIZ, "artifacts", "contracts", "SeguroVoo.sol", "SeguroVoo.json");
 
 function lerRegistroDaImplantacao(rede) {
-  const arquivo = path.join(RAIZ, "deployments", `${rede}.json`);
+  const arquivo = path.join(RAIZ, "rede", `${rede}.json`);
 
   if (!existsSync(arquivo)) {
     throw new Error(
-      `Implantacao nao encontrada em deployments/${rede}.json.\n` +
+      `Implantacao nao encontrada em rede/${rede}.json.\n` +
         `Suba a rede com "npm run chain" e implante com "npm run deploy".`
     );
   }
@@ -72,14 +72,15 @@ export function carregarConfig(ajustes = {}) {
       process.env.ARQUIVO_MANIFESTO ??
       path.join(RAIZ, "data", "manifesto.json"),
 
-    // De quanto em quanto tempo o oráculo procura voos a apurar.
-    intervaloOraculoSegundos: inteiro(process.env.INTERVALO_ORACULO_SEGUNDOS, 8),
+    // Espera entre o cadastro do voo e a apuração pelo oráculo. É a janela
+    // que a companhia tem para embarcar os passageiros: assim que o voo é
+    // apurado, o contrato deixa de aceitar novos bilhetes nele.
+    esperaApuracaoSegundos: inteiro(process.env.ESPERA_APURACAO_SEGUNDOS, 7),
 
-    // Janela em que a companhia ainda pode embarcar passageiros num voo já
-    // cadastrado. Sem ela, o oráculo apuraria o voo entre o cadastro do
-    // primeiro e do segundo passageiro, e o contrato passaria a recusar
-    // novos bilhetes.
-    janelaEmbarqueSegundos: inteiro(process.env.JANELA_EMBARQUE_SEGUNDOS, 15),
+    // Rede de segurança do oráculo: cada voo já é apurado por um disparo
+    // agendado no instante do cadastro, e esta varredura só recolhe o que
+    // tiver sobrado de uma execução anterior.
+    intervaloOraculoSegundos: inteiro(process.env.INTERVALO_ORACULO_SEGUNDOS, 5),
 
     servirFrontend:
       ajustes.servirFrontend ??

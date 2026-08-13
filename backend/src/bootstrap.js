@@ -31,16 +31,20 @@ export async function montarSistema(ajustes = {}) {
   const manifesto = new Manifesto(config.arquivoManifesto);
 
   const consultas = criarConsultas({ acesso, manifesto });
-  const companhia = criarServicoDaCompanhia({ acesso, consultas, manifesto });
+
+  // O oráculo vem antes da companhia porque ela precisa avisá-lo do instante
+  // exato em que cada voo foi cadastrado, que é quando a espera começa.
+  const oraculo = criarOraculo({
+    acesso,
+    log,
+    esperaSegundos: config.esperaApuracaoSegundos
+  });
+
+  const companhia = criarServicoDaCompanhia({ acesso, consultas, manifesto, oraculo });
   const cliente = criarServicoDoCliente({ acesso, consultas, clientes });
   const tribunal = criarServicoDoTribunal({ acesso, consultas, manifesto });
 
   const observador = criarObservador({ acesso, log });
-  const oraculo = criarOraculo({
-    acesso,
-    log,
-    janelaEmbarqueSegundos: config.janelaEmbarqueSegundos
-  });
 
   log.secao(
     "AcordoInstant · backend",

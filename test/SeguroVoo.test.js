@@ -250,17 +250,50 @@ describe("SeguroVoo", () => {
       assert.equal(await contrato.carteiraDoCpf(hashCpf(CPF_ANA)), ZERO);
     });
 
-    it("libera o retido no cadastro, sem nenhum saque", async () => {
+    it("o cadastro nao deposita sozinho: o retido fica disponivel para saque", async () => {
       await embarcar("G31702", CPF_ANA);
       await contrato.connect(oraculo).reportarChegada("G31702", CHEGADA + 5 * HORA);
 
       const antes = await ethers.provider.getBalance(passageiro.address);
       await contrato.connect(plataforma).vincularCarteira(hashCpf(CPF_ANA), passageiro.address);
+
+      assert.equal(await ethers.provider.getBalance(passageiro.address), antes);
+      assert.equal(await contrato.creditoRetido(hashCpf(CPF_ANA)), garantia);
+    });
+
+    it("saca o retido uma vez e zera a pendencia", async () => {
+      await embarcar("G31702", CPF_ANA);
+      await contrato.connect(oraculo).reportarChegada("G31702", CHEGADA + 5 * HORA);
+      await contrato.connect(plataforma).vincularCarteira(hashCpf(CPF_ANA), passageiro.address);
+
+      const antes = await ethers.provider.getBalance(passageiro.address);
+      await contrato.connect(plataforma).sacarCreditoRetido(hashCpf(CPF_ANA));
       const depois = await ethers.provider.getBalance(passageiro.address);
 
       assert.equal(depois - antes, garantia);
       assert.equal(await contrato.creditoRetido(hashCpf(CPF_ANA)), 0n);
       assert.equal(await contrato.totalDepositado(hashCpf(CPF_ANA)), garantia);
+
+      // O botão de saque some porque não há mais o que sacar.
+      await assert.rejects(
+        contrato.connect(plataforma).sacarCreditoRetido(hashCpf(CPF_ANA)),
+        /Nenhum credito retido/
+      );
+    });
+
+    it("depois do saque, o voo seguinte cai direto na carteira", async () => {
+      await embarcar("G31702", CPF_ANA);
+      await contrato.connect(oraculo).reportarChegada("G31702", CHEGADA + 5 * HORA);
+      await contrato.connect(plataforma).vincularCarteira(hashCpf(CPF_ANA), passageiro.address);
+      await contrato.connect(plataforma).sacarCreditoRetido(hashCpf(CPF_ANA));
+
+      await embarcar("AD5310", CPF_ANA);
+
+      const antes = await ethers.provider.getBalance(passageiro.address);
+      await contrato.connect(oraculo).reportarChegada("AD5310", CHEGADA + 6 * HORA);
+
+      assert.equal((await ethers.provider.getBalance(passageiro.address)) - antes, garantia);
+      assert.equal(await contrato.creditoRetido(hashCpf(CPF_ANA)), 0n);
     });
 
     it("acumula varios voos atrasados do mesmo CPF antes do cadastro", async () => {
@@ -272,11 +305,44 @@ describe("SeguroVoo", () => {
 
       assert.equal(await contrato.creditoRetido(hashCpf(CPF_ANA)), garantia * 2n);
 
-      const antes = await ethers.provider.getBalance(passageiro.address);
       await contrato.connect(plataforma).vincularCarteira(hashCpf(CPF_ANA), passageiro.address);
+
+      const antes = await ethers.provider.getBalance(passageiro.address);
+      await contrato.connect(plataforma).sacarCreditoRetido(hashCpf(CPF_ANA));
       const depois = await ethers.provider.getBalance(passageiro.address);
 
       assert.equal(depois - antes, garantia * 2n);
+    });
+
+    it("o proprio titular tambem pode sacar com a carteira dele", async () => {
+      await embarcar("G31702", CPF_ANA);
+      await contrato.connect(oraculo).reportarChegada("G31702", CHEGADA + 5 * HORA);
+      await contrato.connect(plataforma).vincularCarteira(hashCpf(CPF_ANA), passageiro.address);
+
+      await contrato.connect(passageiro).sacarCreditoRetido(hashCpf(CPF_ANA));
+
+      assert.equal(await contrato.creditoRetido(hashCpf(CPF_ANA)), 0n);
+    });
+
+    it("ninguem saca o credito de outro CPF", async () => {
+      await embarcar("G31702", CPF_ANA);
+      await contrato.connect(oraculo).reportarChegada("G31702", CHEGADA + 5 * HORA);
+      await contrato.connect(plataforma).vincularCarteira(hashCpf(CPF_ANA), passageiro.address);
+
+      await assert.rejects(
+        contrato.connect(intruso).sacarCreditoRetido(hashCpf(CPF_ANA)),
+        /Somente o titular ou a plataforma/
+      );
+    });
+
+    it("recusa saque de CPF sem carteira vinculada", async () => {
+      await embarcar("G31702", CPF_ANA);
+      await contrato.connect(oraculo).reportarChegada("G31702", CHEGADA + 5 * HORA);
+
+      await assert.rejects(
+        contrato.connect(plataforma).sacarCreditoRetido(hashCpf(CPF_ANA)),
+        /CPF sem carteira vinculada/
+      );
     });
 
     it("paga todos os passageiros do voo na mesma transacao", async () => {

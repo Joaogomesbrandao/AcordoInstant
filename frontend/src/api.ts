@@ -58,6 +58,15 @@ export const entrarCliente = (cpf: string) => postar<Cliente>('/api/cliente/entr
 export const painelDoCliente = (cpf: string) =>
   requisitar<PainelCliente>(`/api/cliente/${cpf}/painel`);
 
+/**
+ * Saca o valor apurado antes de o CPF ter carteira vinculada.
+ *
+ * Só faz sentido uma vez por cliente: depois dela o crédito retido zera e
+ * toda indenização seguinte cai direto na carteira.
+ */
+export const sacarPendentes = (cpf: string) =>
+  postar<{ valor: string; carteira: string; txHash: string }>(`/api/cliente/${cpf}/sacar`);
+
 // --- Companhia aérea -------------------------------------------------------
 
 export const painelDaCompanhia = () => requisitar<PainelCompanhia>('/api/companhia/painel');
@@ -80,10 +89,3 @@ export const resgatarGarantias = () =>
 
 export const painelDoTribunal = () => requisitar<PainelTribunal>('/api/tribunal/painel');
 
-// --- Oráculo ---------------------------------------------------------------
-
-/** Dispara uma apuração imediata, para não depender do intervalo na demo. */
-export const apurarAgora = () =>
-  postar<{ apurados: { codigo: string; atrasoMinutos: number; atrasado: boolean }[] }>(
-    '/api/oraculo/apurar',
-  );

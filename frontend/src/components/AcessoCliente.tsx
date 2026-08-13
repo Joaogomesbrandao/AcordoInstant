@@ -90,7 +90,7 @@ export function AcessoCliente({ aoEntrar }: { aoEntrar: (cliente: Cliente) => vo
                 id="nome"
                 value={nome}
                 onChange={(evento) => setNome(evento.target.value)}
-                placeholder="Ana Souza"
+                placeholder="Insira o nome"
                 required
               />
             </div>

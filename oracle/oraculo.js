@@ -15,26 +15,57 @@ import { curto, dataHora, duracao } from "../lib/formato.js";
  * pendentes, o que dispara a execução do contrato na mesma transação
  * (indenizar os passageiros ou devolver a garantia à companhia).
  */
-export function criarOraculo({ acesso, log, janelaEmbarqueSegundos = 15 }) {
+export function criarOraculo({ acesso, log, esperaSegundos = 7 }) {
   const contrato = acesso.leitura;
   let temporizador = null;
   let apurando = false;
 
+  /** Instante de cadastro de cada voo, em ms; não muda, então vale guardar. */
+  const cadastroDoVoo = new Map();
+
   /**
-   * Instante do último bilhete embarcado no voo, lido da própria cadeia.
+   * Marca o instante exato em que um voo foi cadastrado e agenda a apuração.
    *
-   * Serve para respeitar a janela de embarque: assim que o oráculo apura um
-   * voo, o contrato passa a recusar novos bilhetes, então apurar no mesmo
-   * segundo em que o primeiro passageiro é registrado impediria a companhia
-   * de embarcar o segundo.
+   * Chamado pelo serviço da companhia logo após a transação de cadastro.
+   *
+   * São duas precisões diferentes em jogo. O `block.timestamp` do bloco
+   * correspondente também daria o instante, mas tem granularidade de um
+   * segundo e trunca a fração: um voo cadastrado em `…40.9` vira `…40`, e a
+   * espera de 7 s duraria 6,1 s de relógio. E deixar a varredura periódica
+   * descobrir sozinha somaria até um intervalo inteiro do outro lado. Com o
+   * instante em milissegundos e um disparo agendado para o momento exato, a
+   * janela fecha quando deve.
    */
-  async function ultimoEmbarqueEm(vooId) {
-    const registros = await contrato.queryFilter(contrato.filters.BilheteRegistrado(null, vooId));
+  function marcarCadastro(vooId) {
+    cadastroDoVoo.set(vooId, Date.now());
+
+    const disparo = setTimeout(() => apurarPendentes(), esperaSegundos * 1000);
+    disparo.unref?.();
+  }
+
+  /**
+   * Momento em que a companhia cadastrou o voo, em ms.
+   *
+   * É a partir daqui que a espera de `esperaSegundos` é contada. O ponto de
+   * referência é o cadastro do voo, e não o último bilhete: assim a janela
+   * para embarcar passageiros é sempre a mesma, previsível, em vez de se
+   * esticar a cada novo passageiro registrado.
+   *
+   * Para voos cadastrados antes de este processo subir, resta a cadeia: aí a
+   * precisão de segundo inteiro basta, porque a espera já venceu há muito.
+   */
+  async function cadastradoEm(vooId) {
+    if (cadastroDoVoo.has(vooId)) return cadastroDoVoo.get(vooId);
+
+    const registros = await contrato.queryFilter(contrato.filters.VooCadastrado(vooId));
     if (registros.length === 0) return null;
 
-    const ultimo = registros[registros.length - 1];
-    const bloco = await acesso.provedor.getBlock(ultimo.blockNumber);
-    return bloco?.timestamp ?? null;
+    const bloco = await acesso.provedor.getBlock(registros[0].blockNumber);
+    if (!bloco?.timestamp) return null;
+
+    const instante = bloco.timestamp * 1000;
+    cadastroDoVoo.set(vooId, instante);
+    return instante;
   }
 
   /** Voos cadastrados no contrato que ainda não foram apurados. */
@@ -74,8 +105,17 @@ export function criarOraculo({ acesso, log, janelaEmbarqueSegundos = 15 }) {
     return { codigo, atrasoMinutos: atraso, atrasado: Number(voo.status) === 2 };
   }
 
-  /** Uma rodada de apuração: reporta todos os voos pendentes já embarcados. */
-  async function apurarPendentes() {
+  /**
+   * Uma rodada de apuração.
+   *
+   * Reporta todos os voos que já passaram da espera. Um voo apurado deixa de
+   * aceitar bilhetes, então a espera é o que garante à companhia uma janela
+   * conhecida para embarcar os passageiros antes de o contrato executar.
+   *
+   * @param {boolean} [ignorarEspera] força a apuração imediata, usada pela
+   *   rota manual do oráculo.
+   */
+  async function apurarPendentes(ignorarEspera = false) {
     if (apurando) return [];
     apurando = true;
 
@@ -85,15 +125,18 @@ export function criarOraculo({ acesso, log, janelaEmbarqueSegundos = 15 }) {
       const lista = await pendentes();
       if (lista.length === 0) return apurados;
 
-      // O relógio de referência é o do sistema, não o do último bloco: a
+      // O relógio de referência é o do sistema, e não o do último bloco: a
       // rede local só avança `block.timestamp` quando mina, então uma rede
-      // parada deixaria a janela de embarque aberta para sempre.
-      const agora = Math.floor(Date.now() / 1000);
+      // parada deixaria a espera aberta para sempre.
+      const agora = Date.now();
+      const espera = esperaSegundos * 1000;
 
       for (const voo of lista) {
-        const embarque = await ultimoEmbarqueEm(voo.vooId);
-        if (embarque !== null && agora - embarque < janelaEmbarqueSegundos) {
-          continue; // embarque ainda aberto
+        if (!ignorarEspera) {
+          const cadastro = await cadastradoEm(voo.vooId);
+          if (cadastro !== null && agora - cadastro < espera) {
+            continue; // ainda dentro da janela de embarque
+          }
         }
 
         const resultado = await apurar(voo.codigo);
@@ -112,14 +155,23 @@ export function criarOraculo({ acesso, log, janelaEmbarqueSegundos = 15 }) {
     apurar,
     apurarPendentes,
     pendentes,
+    marcarCadastro,
 
-    async iniciar(intervaloSegundos = 8) {
+    /**
+     * Liga a varredura periódica.
+     *
+     * É uma rede de segurança, não o caminho normal: quem apura no instante
+     * certo é o disparo agendado em `marcarCadastro`. A varredura existe
+     * para os voos que ficaram pendentes de uma execução anterior, cujo
+     * agendamento se perdeu quando o processo caiu.
+     */
+    async iniciar(intervaloSegundos = 5) {
       log.evento({
         rotulo: "ORACULO ATIVO",
         cor: "magenta",
         resumo:
-          `conta ${curto(acesso.enderecoDoOraculo)} · verificando voos a cada ` +
-          `${intervaloSegundos}s · janela de embarque ${janelaEmbarqueSegundos}s`,
+          `conta ${curto(acesso.enderecoDoOraculo)} · apura cada voo ` +
+          `${esperaSegundos}s apos o cadastro`,
         detalhes: ["fonte: oracle/voos.mock.js (horario real de chegada)"]
       });
 

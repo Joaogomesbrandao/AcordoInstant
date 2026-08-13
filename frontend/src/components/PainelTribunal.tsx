@@ -36,9 +36,11 @@ export function PainelTribunal() {
       </header>
 
       <Indicadores
+        colunas={3}
         itens={[
           { valor: dados.totais.voos, rotulo: 'Contratos de voo' },
           { valor: dados.totais.bilhetes, rotulo: 'Bilhetes segurados' },
+          { valor: dados.totais.aguardandoOraculo, rotulo: 'Aguardando apuração' },
           { valor: dados.totais.atrasados, rotulo: 'Voos atrasados' },
           { valor: dados.totais.indenizacoes, rotulo: 'Indenizações executadas' },
           { valor: dados.totais.totalIndenizado, rotulo: 'Total pago aos passageiros' },

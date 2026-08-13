@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { painelDoCliente } from '../api';
+import { useCallback, useState } from 'react';
+import { ErroApi, painelDoCliente, sacarPendentes } from '../api';
 import { usePainel } from '../hooks/usePainel';
 import type { Cliente } from '../tipos';
 import { dataHora, estadoDoVoo } from '../utils/formato';
@@ -16,7 +16,30 @@ import './painel.css';
  */
 export function PainelCliente({ cliente }: { cliente: Cliente }) {
   const carregar = useCallback(() => painelDoCliente(cliente.cpfDigitos), [cliente.cpfDigitos]);
-  const { dados, erro, carregando } = usePainel(carregar);
+  const { dados, erro, carregando, atualizar } = usePainel(carregar);
+
+  const [sacando, setSacando] = useState(false);
+  const [mensagem, setMensagem] = useState<string | null>(null);
+  const [falha, setFalha] = useState<string | null>(null);
+
+  async function sacar() {
+    setMensagem(null);
+    setFalha(null);
+    setSacando(true);
+
+    try {
+      const resultado = await sacarPendentes(cliente.cpfDigitos);
+      setMensagem(
+        `${resultado.valor} depositados na sua carteira. ` +
+          'A partir de agora, toda indenização cai automaticamente, sem você pedir.',
+      );
+      await atualizar();
+    } catch (erroSaque) {
+      setFalha(erroSaque instanceof ErroApi ? erroSaque.message : 'Falha ao sacar os valores.');
+    } finally {
+      setSacando(false);
+    }
+  }
 
   if (carregando && !dados) return <p className="carregando">Carregando seus voos…</p>;
   if (erro && !dados) return <Aviso tipo="erro">{erro}</Aviso>;
@@ -41,6 +64,7 @@ export function PainelCliente({ cliente }: { cliente: Cliente }) {
       </header>
 
       <Indicadores
+        colunas={3}
         itens={[
           { valor: dados.totais.depositado, rotulo: 'Já depositado na sua carteira' },
           { valor: dados.totais.viagens, rotulo: 'Voos segurados' },
@@ -48,17 +72,34 @@ export function PainelCliente({ cliente }: { cliente: Cliente }) {
         ]}
       />
 
+      {/*
+        Some assim que o saque é confirmado: é um valor único, apurado
+        enquanto este CPF ainda não tinha carteira vinculada. Daí em diante
+        não há mais nada a solicitar.
+      */}
+      {dados.totais.temPendencia ? (
+        <div className="pendencia">
+          <div>
+            <span className="pendencia-valor">{dados.totais.pendente}</span>
+            <p className="pendencia-texto">
+              Este valor foi apurado em voos seus que atrasaram antes de você criar a conta, e ficou
+              guardado no contrato em nome do seu CPF. Saque uma vez para recebê-lo. Depois disso,
+              toda indenização é depositada automaticamente na sua carteira.
+            </p>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={sacar} disabled={sacando}>
+            {sacando ? 'Depositando…' : 'Receber valores pendentes'}
+          </button>
+        </div>
+      ) : null}
+
+      {mensagem ? <Aviso tipo="ok">{mensagem}</Aviso> : null}
+      {falha ? <Aviso tipo="erro">{falha}</Aviso> : null}
+
       <FaixaRegra
         regra={dados.regra}
         nota="Você não precisa solicitar nada: o pagamento é automático e cai direto na sua carteira."
       />
-
-      {dados.totais.aguardandoCadastro !== 'R$ 0,00' ? (
-        <Aviso tipo="info">
-          {dados.totais.aguardandoCadastro} estão reservados para o seu CPF e serão depositados na
-          próxima atualização.
-        </Aviso>
-      ) : null}
 
       <section className="bloco card">
         <div className="bloco-titulo">

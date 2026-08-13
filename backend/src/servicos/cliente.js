@@ -64,16 +64,17 @@ export function criarServicoDoCliente({ acesso, consultas, clientes }) {
 
       return {
         cliente: publico(recuperado),
-        liberadoNoCadastro: brl(0n),
-        liberadoNoCadastroWei: "0",
+        pendente: brl(await contrato.creditoRetido(hash)),
         txHash: null,
         bloco: null,
         recuperado: true
       };
     }
 
-    // Quanto o contrato já guardava para este CPF antes do cadastro: é o
-    // valor que a transação abaixo deposita de uma vez.
+    // Quanto o contrato já guardava para este CPF antes do cadastro. Esse
+    // valor não é depositado agora: fica disponível para o titular sacar uma
+    // única vez, porque foi apurado quando ainda não havia carteira para
+    // receber. Do cadastro em diante, tudo cai direto na carteira.
     const retidoAntes = await contrato.creditoRetido(hash);
 
     try {
@@ -84,8 +85,47 @@ export function criarServicoDoCliente({ acesso, consultas, clientes }) {
 
       return {
         cliente: publico(cliente),
-        liberadoNoCadastro: brl(retidoAntes),
-        liberadoNoCadastroWei: retidoAntes.toString(),
+        pendente: brl(retidoAntes),
+        pendenteWei: retidoAntes.toString(),
+        txHash: recibo.hash,
+        bloco: recibo.blockNumber
+      };
+    } catch (erro) {
+      throw traduzirErroDeContrato(erro);
+    }
+  }
+
+  /**
+   * Saca o valor que já estava reservado para o CPF antes do cadastro.
+   *
+   * É a única vez em que o passageiro precisa pedir alguma coisa, e existe
+   * só porque esse dinheiro foi apurado quando ele ainda não tinha carteira
+   * vinculada. Depois deste saque o crédito retido zera e não volta: toda
+   * indenização seguinte é depositada automaticamente.
+   *
+   * Quem assina é a plataforma, porque neste protótipo o passageiro não tem
+   * chave privada. O contrato só permite que o valor vá para a carteira
+   * vinculada àquele CPF.
+   */
+  async function sacarPendentes(cpf) {
+    const cliente = await clientes.buscarPorCpf(cpf);
+    if (!cliente) {
+      throw naoEncontrado("CPF nao cadastrado");
+    }
+
+    const retido = await contrato.creditoRetido(cliente.hashCpf);
+    if (retido === 0n) {
+      throw erroDeUso("Nao ha valores pendentes para sacar");
+    }
+
+    try {
+      const transacao = await acesso.comoPlataforma.sacarCreditoRetido(cliente.hashCpf);
+      const recibo = await transacao.wait();
+
+      return {
+        valor: brl(retido),
+        valorWei: retido.toString(),
+        carteira: cliente.carteira,
         txHash: recibo.hash,
         bloco: recibo.blockNumber
       };
@@ -147,9 +187,11 @@ export function criarServicoDoCliente({ acesso, consultas, clientes }) {
       totais: {
         depositado: brl(depositado),
         depositadoWei: depositado.toString(),
-        // Só aparece se algo tiver sido apurado entre o cadastro e agora
-        // sem carteira vinculada. Na prática, sempre zero após o cadastro.
-        aguardandoCadastro: brl(retido),
+        // Valor apurado antes de este CPF ter carteira vinculada. É o que
+        // habilita o botão de saque, e some depois que ele é sacado.
+        pendente: brl(retido),
+        pendenteWei: retido.toString(),
+        temPendencia: retido > 0n,
         viagens: viagens.length,
         indenizadas: viagens.filter((viagem) => viagem.indenizado).length
       },
@@ -168,5 +210,5 @@ export function criarServicoDoCliente({ acesso, consultas, clientes }) {
     };
   }
 
-  return { cadastrar, entrar, painel };
+  return { cadastrar, entrar, painel, sacarPendentes };
 }

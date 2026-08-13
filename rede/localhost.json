@@ -5,9 +5,9 @@
   "chainId": 31337,
   "rpcUrl": "http://127.0.0.1:8545",
   "implantadoPor": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "txHash": "0xa9d9142de7227d9c3a704d360768323351d818bbde539cf6af223d23d31a19d4",
-  "bloco": 30,
-  "implantadoEm": "2026-08-12T20:59:30.180Z",
+  "txHash": "0xe3be46a4dcd219b848a383dd88d3654f850d9ad2b507cb65ad2b09cbccbdfa38",
+  "bloco": 1,
+  "implantadoEm": "2026-08-13T20:02:18.494Z",
   "regra": {
     "limiarAtrasoHoras": 4,
     "indenizacaoWei": "500000000000000000",
@@ -45,6 +45,5 @@
       "rotulo": "Usuario de teste 5",
       "endereco": "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
     }
-  ],
-  "observacao": "Endereco restaurado para o contrato ja em uso na rede local em execucao."
+  ]
 }

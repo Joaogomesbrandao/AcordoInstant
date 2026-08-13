@@ -88,6 +88,18 @@ export function criarApp({ config, cliente, companhia, tribunal, oraculo, observ
     rota((req) => cliente.painel(req.params.cpf))
   );
 
+  /**
+   * Saca o valor apurado antes de o CPF ter carteira vinculada.
+   *
+   * É a única ação de saque do sistema, e existe uma vez só por CPF: depois
+   * dela o crédito retido zera e toda indenização seguinte é depositada
+   * direto na carteira, sem pedido nenhum.
+   */
+  app.post(
+    "/api/cliente/:cpf/sacar",
+    rota((req) => cliente.sacarPendentes(req.params.cpf), { registrar: true })
+  );
+
   // --- Companhia aérea ------------------------------------------------------
 
   app.get(
@@ -136,15 +148,15 @@ export function criarApp({ config, cliente, companhia, tribunal, oraculo, observ
   );
 
   /**
-   * Dispara uma apuração imediata.
+   * Dispara uma apuração imediata, sem esperar a janela de embarque.
    *
-   * O oráculo já roda sozinho em intervalo fixo; esta rota existe para a
-   * demonstração não depender do relógio. Mesmo assim, quem reporta é a
-   * conta do oráculo, e o horário continua vindo da base externa.
+   * O oráculo já apura sozinho; esta rota existe para a demonstração não
+   * depender do relógio. Mesmo assim, quem reporta é a conta do oráculo, e o
+   * horário continua vindo da base externa.
    */
   app.post(
     "/api/oraculo/apurar",
-    rota(async () => ({ apurados: await oraculo.apurarPendentes() }), { registrar: true })
+    rota(async () => ({ apurados: await oraculo.apurarPendentes(true) }), { registrar: true })
   );
 
   // --- Frontend compilado (modo processo único) -----------------------------

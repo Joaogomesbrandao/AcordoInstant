@@ -175,7 +175,9 @@ contract SeguroVoo {
         uint256 saldoLiberado
     );
 
-    event CarteiraVinculada(bytes32 indexed hashCpf, address indexed carteira);
+    event CarteiraVinculada(bytes32 indexed hashCpf, address indexed carteira, uint256 creditoPendente);
+
+    event CreditoRetidoSacado(bytes32 indexed hashCpf, address indexed carteira, uint256 valor);
 
     event GarantiaResgatada(address indexed companhia, uint256 valor, uint256 saldoRestante);
 
@@ -389,29 +391,57 @@ contract SeguroVoo {
     // --- Plataforma ---
 
     /**
-     * @notice Vincula a carteira informada no cadastro ao hash do CPF e
-     *         deposita de imediato tudo que já estava reservado para ele.
-     * @dev É o que permite indenizar um passageiro que ainda não era usuário
-     *      da plataforma quando o voo atrasou, sem nenhum saque manual.
+     * @notice Vincula a carteira informada no cadastro ao hash do CPF.
+     * @dev A partir daqui, toda indenização apurada é depositada direto nessa
+     *      carteira. O que já tinha sido apurado antes do cadastro continua
+     *      retido e sai por `sacarCreditoRetido`: é o único valor que o
+     *      titular precisa reivindicar, porque foi acumulado quando ainda não
+     *      havia carteira para receber.
+     * @return pendente Quanto ficou disponível para saque neste momento.
      */
-    function vincularCarteira(bytes32 hashCpf, address carteira) external somentePlataforma {
+    function vincularCarteira(
+        bytes32 hashCpf,
+        address carteira
+    ) external somentePlataforma returns (uint256 pendente) {
         require(hashCpf != bytes32(0), "Hash de CPF invalido");
         require(carteira != address(0), "Carteira invalida");
         require(carteiraDoCpf[hashCpf] == address(0), "CPF ja possui carteira vinculada");
 
         carteiraDoCpf[hashCpf] = carteira;
-        emit CarteiraVinculada(hashCpf, carteira);
+        pendente = creditoRetido[hashCpf];
 
-        uint256 pendente = creditoRetido[hashCpf];
-        if (pendente == 0) return;
+        emit CarteiraVinculada(hashCpf, carteira, pendente);
+    }
+
+    /**
+     * @notice Saca o crédito acumulado antes de o CPF ter carteira vinculada.
+     * @dev Existe uma única vez na vida de cada CPF: depois do saque, o
+     *      crédito retido zera e todo pagamento seguinte já cai direto na
+     *      carteira, sem nenhuma ação do passageiro.
+     *
+     *      Pode ser chamada pelo próprio titular da carteira ou pela
+     *      plataforma em nome dele, já que neste protótipo o passageiro não
+     *      assina transações. Em qualquer caso o dinheiro só vai para a
+     *      carteira vinculada ao CPF.
+     */
+    function sacarCreditoRetido(bytes32 hashCpf) external returns (uint256 valor) {
+        address carteira = carteiraDoCpf[hashCpf];
+        require(carteira != address(0), "CPF sem carteira vinculada");
+        require(
+            msg.sender == carteira || msg.sender == plataforma,
+            "Somente o titular ou a plataforma"
+        );
+
+        valor = creditoRetido[hashCpf];
+        require(valor > 0, "Nenhum credito retido");
 
         creditoRetido[hashCpf] = 0;
-        totalDepositado[hashCpf] += pendente;
+        totalDepositado[hashCpf] += valor;
 
-        (bool ok, ) = payable(carteira).call{value: pendente}("");
-        require(ok, "Falha ao liberar credito retido");
+        (bool ok, ) = payable(carteira).call{value: valor}("");
+        require(ok, "Falha no saque do credito retido");
 
-        emit IndenizacaoDepositada(bytes32(0), hashCpf, carteira, pendente);
+        emit CreditoRetidoSacado(hashCpf, carteira, valor);
     }
 
     // --- Consultas (usadas pelos três painéis e pela auditoria do TJPB) ---

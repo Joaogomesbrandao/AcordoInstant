@@ -58,7 +58,7 @@ O script grava dois arquivos:
 
 | Arquivo | Consumido por |
 |---|---|
-| `deployments/localhost.json` | Backend e oráculo (endereço do contrato e papéis) |
+| `rede/localhost.json` | Backend e oráculo (endereço do contrato e papéis) |
 | `frontend/src/rede.config.ts` | Frontend (endereço e chainId para exibição) |
 
 **Não é preciso copiar endereço para nenhum `.env`.** Implantar de novo
@@ -71,8 +71,8 @@ npm run dev
 ```
 
 Backend em `http://127.0.0.1:3001` e frontend em `http://localhost:3000`. É
-essa a URL para abrir no navegador. O oráculo sobe junto com o backend e
-começa a apurar voos sozinho.
+essa a URL para abrir no navegador. O oráculo sobe junto com o backend e apura
+cada voo 7 segundos depois de ele ser cadastrado.
 
 ### 4. (Opcional) Popular com dados de demonstração
 
@@ -146,8 +146,10 @@ Tudo funciona sem `.env`. Se precisar ajustar algo, copie `.env.example`:
 | Variável | Padrão | Para quê |
 |---|---|---|
 | `PORT` | `3001` | Porta do backend |
-| `INTERVALO_ORACULO_SEGUNDOS` | `8` | Frequência de apuração |
-| `JANELA_EMBARQUE_SEGUNDOS` | `15` | Tempo para embarcar mais passageiros |
+| `HOST` | `127.0.0.1` | Interface do backend |
+| `REDE` | `localhost` | Qual `rede/<REDE>.json` carregar |
+| `ESPERA_APURACAO_SEGUNDOS` | `7` | Janela entre o cadastro do voo e a apuração |
+| `INTERVALO_ORACULO_SEGUNDOS` | `5` | Varredura de segurança do oráculo (o caminho normal é agendado) |
 | `CPF_PEPPER` | valor de demonstração | Segredo do hash do CPF |
 | `MNEMONIC` | mnemônico do Hardhat | Origem das carteiras |
 
@@ -157,6 +159,7 @@ Tudo funciona sem `.env`. Se precisar ajustar algo, copie `.env.example`:
 npm test
 ```
 
-30 testes cobrindo os termos do contrato, o controle de acesso de cada papel,
+35 testes cobrindo os termos do contrato, o controle de acesso de cada papel,
 as bordas da regra (4 h 05 indeniza, 4 h 00 não), o depósito direto, a
-retenção para CPF sem cadastro e a liberação no cadastro.
+retenção para CPF sem cadastro, o saque único do que ficou retido e o depósito
+automático dos voos seguintes.

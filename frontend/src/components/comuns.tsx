@@ -2,14 +2,28 @@ import type { ReactNode } from 'react';
 import type { Regra, Voo } from '../tipos';
 import { curto, dataHora, seloDoVoo } from '../utils/formato';
 
-/** Linha de indicadores no topo de um painel. */
-export function Indicadores({ itens }: { itens: { valor: ReactNode; rotulo: string }[] }) {
+export interface Indicador {
+  valor: ReactNode;
+  rotulo: string;
+  /** Linha menor sob o rótulo, para a unidade ou um detalhe do valor. */
+  nota?: string;
+}
+
+/**
+ * Linha de indicadores no topo de um painel.
+ *
+ * O número de colunas é fixo, e não automático: com `auto-fit`, uma última
+ * linha incompleta deixava buracos visíveis no meio do painel. Quem monta a
+ * linha escolhe uma contagem que fecha certo.
+ */
+export function Indicadores({ itens, colunas = 4 }: { itens: Indicador[]; colunas?: 2 | 3 | 4 }) {
   return (
-    <div className="indicadores">
+    <div className={`indicadores indicadores-${colunas}`}>
       {itens.map((item) => (
         <div className="indicador" key={item.rotulo}>
           <span className="indicador-valor">{item.valor}</span>
           <span className="indicador-rotulo">{item.rotulo}</span>
+          {item.nota ? <span className="indicador-nota">{item.nota}</span> : null}
         </div>
       ))}
     </div>

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ErroApi, embarcarPassageiros, painelDaCompanhia, resgatarGarantias, voosDisponiveis } from '../api';
+import {
+  ErroApi,
+  embarcarPassageiros,
+  painelDaCompanhia,
+  resgatarGarantias,
+  voosDisponiveis,
+} from '../api';
 import { usePainel } from '../hooks/usePainel';
 import type { PassageiroPendente, VooDisponivel } from '../tipos';
 import { estadoDoVoo, mascaraCpf } from '../utils/formato';
@@ -15,7 +21,10 @@ import './painel.css';
  * e do contrato.
  */
 export function PainelCompanhia() {
-  const { dados, erro, carregando, atualizar } = usePainel(painelDaCompanhia);
+  // Atualiza mais rápido que o padrão: a apuração acontece poucos segundos
+  // depois do cadastro do voo, e a tela precisa acompanhar essa mudança que
+  // ninguém pediu ali.
+  const { dados, erro, carregando, atualizar } = usePainel(painelDaCompanhia, 2000);
 
   const [voos, setVoos] = useState<VooDisponivel[]>([]);
   const [codigo, setCodigo] = useState('');
@@ -117,13 +126,24 @@ export function PainelCompanhia() {
       </header>
 
       <Indicadores
+        colunas={4}
         itens={[
-          { valor: dados.totais.saldoCarteira, rotulo: 'Saldo da carteira da companhia' },
+          {
+            valor: dados.totais.saldoCarteiraReais,
+            rotulo: 'Saldo da carteira',
+            nota: dados.totais.saldoCarteira,
+          },
           { valor: dados.totais.emEscrow, rotulo: 'Em escrow' },
           { valor: dados.totais.saldoLiberado, rotulo: 'Liberado para resgate' },
           { valor: dados.totais.totalIndenizado, rotulo: 'Já indenizado' },
+        ]}
+      />
+
+      <Indicadores
+        colunas={4}
+        itens={[
           { valor: dados.totais.voos, rotulo: 'Voos cadastrados' },
-          { valor: dados.totais.passageiros, rotulo: 'Passageiros a bordo' },
+          { valor: dados.totais.aguardandoOraculo, rotulo: 'Aguardando apuração' },
           { valor: dados.totais.atrasados, rotulo: 'Voos atrasados' },
           { valor: dados.totais.pontuais, rotulo: 'Voos no prazo' },
         ]}
@@ -186,7 +206,7 @@ export function PainelCompanhia() {
                   id="passageiro"
                   value={nome}
                   onChange={(evento) => setNome(evento.target.value)}
-                  placeholder="Ana Souza"
+                  placeholder="Insira o nome"
                   required
                 />
               </div>
@@ -274,7 +294,12 @@ export function PainelCompanhia() {
       <section className="bloco card">
         <div className="bloco-titulo">
           <h2>Voos cadastrados</h2>
-          <p>{dados.totais.aguardandoOraculo} aguardando apuração do oráculo.</p>
+          <p>
+            {dados.totais.aguardandoOraculo > 0
+              ? `${dados.totais.aguardandoOraculo} voo(s) aguardando o oráculo. ` +
+                'A apuração acontece sozinha alguns segundos depois do cadastro do voo.'
+              : 'Todos os voos já foram apurados pelo oráculo.'}
+          </p>
         </div>
 
         {dados.voos.length === 0 ? (

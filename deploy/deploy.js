@@ -15,7 +15,7 @@ import { brl, curto, eth, numero } from "../lib/formato.js";
  * Além de publicar o contrato, o script:
  *   1. deriva as carteiras dos quatro papéis (companhia, oráculo, TJPB e
  *      plataforma) e as cinco carteiras de teste dos passageiros;
- *   2. grava `deployments/<rede>.json` com o registro da implantação;
+ *   2. grava `rede/<rede>.json` com o registro da implantação;
  *   3. gera `frontend/src/rede.config.ts` com o endereço do contrato.
  *
  * O passo 3 é o que evita copiar endereço à mão para o `.env`: o backend lê
@@ -131,7 +131,7 @@ async function main() {
     }))
   };
 
-  const arquivoRegistro = path.join(RAIZ, "deployments", `${networkName}.json`);
+  const arquivoRegistro = path.join(RAIZ, "rede", `${networkName}.json`);
   await mkdir(path.dirname(arquivoRegistro), { recursive: true });
   await writeFile(arquivoRegistro, `${JSON.stringify(registro, null, 2)}\n`, "utf8");
 
