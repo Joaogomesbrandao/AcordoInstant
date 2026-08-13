@@ -1,81 +1,154 @@
 # AcordoInstant
 
-Protótipo de seguro paramétrico para atraso de voos: a companhia deposita um
-fundo de garantia no contrato e cadastra o voo com sua própria carteira; o
-passageiro confere o atraso oficial do voo (consultado pelo Oracle) e, ao
-confirmar, registra esse atraso no contrato com sua própria carteira. O
-contrato calcula a indenização e paga o passageiro automaticamente quando as
-condições são satisfeitas, emitindo o evento de quitação.
+Seguro paramétrico de atraso de voo em contrato inteligente.
 
-## Conteúdo
+**Tarefa final** de Blockchain, Contratos Inteligentes e Direito, ESMA-PB 2026.
+Proposta em [`Projeto3_AcordoInstant_proposta.pdf`](./Projeto3_AcordoInstant_proposta.pdf).
 
-- `contracts/SeguroParametrico.sol`: único smart contract do projeto.
-  Funções centrais: `cadastrarVoo` (chamada pela companhia) e
-  `registrarAtraso` (chamada pelo passageiro), que calcula a multa e paga o
-  passageiro se houver saldo, com `depositarFundo` como função de apoio ao
-  fluxo.
-- `oracle/oracle.js`: componente off-chain de consulta/integração — busca o
-  atraso oficial na fonte de dados do voo e o repassa ao backend. Não possui
-  privilégios no contrato e não assina nenhuma transação.
-- `docs/diagrama-arquitetura-base.md`: diagrama de arquitetura (componentes,
-  o que fica on-chain e o que fica off-chain).
-- `docs/arquitetura.md`: diagrama de sequência do fluxo da função central.
-- `docs/diagrama-classes.md`: diagrama de classes do contrato — atributos,
-  funções e relações.
+## O problema
 
-## Fluxo do Oracle (consulta off-chain)
+Um processo por atraso de voo leva de 6 meses a 2 anos no Juizado Especial
+Cível. O passageiro precisa juntar provas, procurar advogado e esperar; a
+companhia troca um custo previsível por condenações incertas; e o Judiciário
+absorve milhares de demandas que poderiam ter sido resolvidas no momento do
+atraso.
 
-O Oracle não participa das transações on-chain. Ele apenas consulta o banco
-mockado (que representa a fonte/API oficial da companhia) e repassa o atraso
-oficial ao backend, que o entrega ao frontend para exibição ao passageiro.
-Somente depois de conferir esse valor o passageiro assina, com a própria
-carteira, a transação `registrarAtraso(vooId, atrasoHoras)`. A demonstração
-abaixo, no Remix, cobre apenas a parte on-chain desse fluxo (as transações
-assinadas pela companhia e pelo passageiro); a consulta do atraso oficial
-pelo Oracle acontece fora da blockchain e não tem uma tela própria no Remix.
+## A solução
 
-## Demonstração no Remix
+Se o voo atrasa mais de **4 horas**, o contrato deposita **R$ 500,00** na
+carteira do passageiro. Automaticamente, sem pedido, sem análise humana e sem
+processo.
 
-1. Acesse [remix.ethereum.org](https://remix.ethereum.org), crie um arquivo `SeguroParametrico.sol` e cole o código do contrato.
-2. Vá em **Solidity Compiler**, selecione a versão `0.8.24` e clique em **Compile**.
-3. Vá em **Deploy & Run Transactions**, deixe o **Environment** como `Remix VM`. Você terá várias contas de teste com 100 ETH cada — use:
-   - **Conta 1** → Companhia aérea
-   - **Conta 2** → Passageiro
-4. O construtor não recebe argumentos: com qualquer conta selecionada, clique em **Deploy**.
-5. **Depósito do escrow:** com a **Conta 1** (Companhia) selecionada, coloque `1` no campo **Value** (unidade `Ether`) e chame `depositarFundo`.
-6. **Cadastro do voo:** ainda com a **Conta 1**, coloque **Value = 0** (importante!) e chame `cadastrarVoo(vooId, enderecoDoPassageiro)` — o contrato usa `msg.sender` (a Conta 1) como endereço da empresa automaticamente.
-7. **Registro do atraso e pagamento automático:** troque para a **Conta 2** (Passageiro). Com **Value = 0**, chame `registrarAtraso(vooId, atrasoHoras)` — use um valor `> 2` para disparar o pagamento. Confira no console os eventos `AtrasoRegistrado`, `PagamentoRealizado` e `QuitacaoEmitida`.
-8. **Conferir o estado:**
-   - `consultarSaldo(enderecoDaCompanhia)` → saldo do escrow da companhia, em wei (ex: `980000000000000000` = `0,98 ETH`).
-   - `consultarVoo(vooId)` → mostra o voo com `pago: true`.
-   - Saldo da carteira do passageiro (Conta 2) aumenta em `0,01 ETH` — visível no dropdown **Account**.
-> ⚠️ **Atenção ao campo Value:** ele só deve ter valor diferente de zero na chamada de `depositarFundo` (a única função `payable`). Nas demais funções, deixe **Value = 0**, senão a transação reverte.
-> ⚠️ **Atenção à conta selecionada:** `cadastrarVoo` deve ser chamada pela conta da companhia e `registrarAtraso` pela conta do passageiro vinculado ao voo — o contrato usa `msg.sender` para validar isso e reverte caso contrário.
+O passageiro não assina transação nenhuma: só informa sua chave pública. Se o
+voo atrasou antes de ele ter conta, o valor fica guardado em nome do CPF dele
+e ele o recebe com um único clique ao se cadastrar. Dali em diante, todo
+depósito é automático.
 
-## Regra paramétrica atual
+O TJPB recebe uma cópia do registro e o **termo de quitação** de cada
+pagamento: a prova a ser consultada caso a mesma pessoa ingresse no Juizado
+por um dano já quitado.
 
-- atraso de até duas horas: nenhuma indenização;
-- atraso superior a duas horas: pagamento fixo de `0,01 ETH`;
-- saldo insuficiente: atraso registrado, sem pagamento; uma nova tentativa
-  pode ser feita após a companhia depositar fundos.
+## Como funciona
 
-ETH é usado apenas como unidade de demonstração.
+```
+Companhia embarca os passageiros  →  R$ 500,00 travados por bilhete
+                ↓
+   7 s depois, o oráculo lê o horário real na fonte
+   externa e escreve no contrato (sem ação humana)
+                ↓
+        atraso > 4 h ?
+       ↙                ↘
+    sim                  não
+     ↓                    ↓
+paga o passageiro    devolve a garantia
++ termo de quitação   para a companhia
+```
+
+## Rodando
+
+Requer Node.js 22+.
+
+```bash
+npm install && npm --prefix frontend install
+
+npm run chain     # terminal 1: rede local
+npm run deploy    # terminal 2: implanta e configura tudo
+npm run dev       # terminal 2: backend :3001 + frontend :3000
+```
+
+Abra `http://localhost:3000`. O deploy grava o endereço do contrato onde o
+backend e o frontend leem, e não há endereço para copiar em `.env` nenhum.
+
+O roteiro completo da demonstração está em [`docs/uso.md`](./docs/uso.md).
+
+## Os três perfis
+
+| Perfil | O que faz |
+|---|---|
+| **Passageiro** | Cadastra-se com nome, CPF e chave pública; acompanha os voos e vê quanto já recebeu |
+| **Companhia aérea** | Embarca passageiros (depositando a garantia) e resgata as garantias de voos pontuais |
+| **TJPB** | Audita a cópia do registro e os termos de quitação, sem nenhuma ação de escrita |
+
+## LGPD: nenhum dado pessoal na cadeia
+
+O CPF identifica o cliente, mas nunca é publicado. O que vai para a blockchain
+é `keccak256(pepper, cpf)`; nome e CPF em claro ficam no servidor.
+
+O pepper existe porque um CPF tem 11 dígitos: o hash do número puro seria
+reversível por força bruta e voltaria a ser, na prática, um dado pessoal.
+
+## Logs
+
+Toda movimentação da blockchain é impressa no terminal e gravada em
+`logs/blockchain.log`:
+
+```
+16:59:34  CHEGADA REPORTADA     G31702 · prevista 03/08 12:20 · real 03/08 17:05 · atraso 4h45 · ATRASADO
+                                regra acionada: indenizar passageiros · tx 0xd8b8…a2b0 · bloco 7 · gas 156.228
+16:59:34  INDENIZACAO RETIDA    G31702 · R$ 500,00 reservados para 0x7ea2…8b5d · passageiro ainda sem cadastro
+                                credito acumulado R$ 500,00
+16:59:34  QUITACAO EMITIDA      G31702 · R$ 500,00 · atraso 4h45 · passageiro 0x7ea2…8b5d
+                                quitacao dos danos materiais imediatos em 12/08 16:59
+```
+
+O log é lido da própria cadeia, bloco a bloco: registra o que o contrato
+executou, não o que o backend pediu.
+
+## Estrutura
+
+```
+contracts/SeguroVoo.sol   Contrato: termos, escrow, execução e quitação
+deploy/                   Scripts de implantação e derivação das carteiras
+rede/                     Registro do que foi implantado (endereço, papéis)
+backend/                  API dos três perfis, assinatura e observador da cadeia
+oracle/                   Base de 20 voos e o serviço que apura on-chain
+frontend/                 React + TypeScript, um painel por perfil
+docs/                     Arquitetura, diagramas, deploy e roteiro de uso
+test/                     35 testes do contrato
+logs/                     Registro das movimentações (gerado)
+```
+
+## Documentação
+
+- [Arquitetura](./docs/arquitetura.md): componentes, papéis e a fronteira
+  on-chain/off-chain
+- [Diagrama de componentes](./docs/diagramas/componentes.md)
+- [Diagrama de sequência](./docs/diagramas/sequencia.md)
+- [Diagrama de classes](./docs/diagramas/classes.md)
+- [Deploy e execução](./docs/deploy.md)
+- [Roteiro de demonstração](./docs/uso.md)
+
+## Rede
+
+Rede local (Hardhat Network, chainId 31337). A proposta indica a Rede
+Blockchain Brasil, permissionada, priorizando segurança e escalabilidade
+sobre descentralização total, com custo de transação previsível. O que mudaria
+lá é o endpoint e a governança dos nós; o contrato e os papéis são os mesmos.
+O TJPB, que aqui é uma conta com acesso de leitura, lá seria um nó validador.
+
+## Testes
+
+```bash
+npm test
+```
+
+35 testes cobrindo o controle de acesso de cada papel, as bordas da regra
+(4 h 05 indeniza, 4 h 00 não), o depósito direto na carteira, a retenção para
+CPF sem cadastro, o saque único do que ficou retido e o depósito automático de
+todos os voos seguintes.
+
+## Escopo do protótipo
+
+Entregue: o contrato completo, os três painéis, o oráculo com apuração
+automática, o sistema de logs, os diagramas e a suíte de testes.
+
+As limitações deliberadas (vínculo CPF↔carteira sem validação documental,
+oráculo único, base de voos mockada e ausência de autenticação institucional
+nas telas) estão detalhadas em
+[docs/arquitetura.md § Limitações conhecidas](./docs/arquitetura.md#limitações-conhecidas).
 
 ## Uso de Inteligência Artificial
 
-Este projeto usou um assistente de IA como ferramenta de apoio, de forma
-consciente e supervisionada por integrantes do grupo, não como substituto
-das decisões técnicas. O processo foi:
-
-1. o grupo definiu o problema, os requisitos da disciplina e a ideia geral da
-   arquitetura (incluindo o diagrama original desenhado à mão pelo grupo);
-2. essa ideia foi passada à IA para refinar a arquitetura, escrever o
-   contrato e formalizar os diagramas em Mermaid;
-3. cada resultado foi revisado por integrantes do grupo: o contrato foi lido
-   linha a linha e compilado antes de aceito, os diagramas foram conferidos
-   contra a versão original do grupo, e o texto foi ajustado sempre que
-   alguma decisão gerada não refletia exatamente o que o grupo pretendia;
-4. modelos diferentes de IA foram utilizados para a produção guiada e compreensão
-   do código do contrato em Solidity.
-
-
+O grupo definiu o problema, os requisitos e a arquitetura da solução; a IA foi
+usada como ferramenta de apoio na implementação e na formalização dos
+diagramas, com revisão de cada resultado pelos integrantes.

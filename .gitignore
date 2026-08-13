@@ -1,5 +1,18 @@
 node_modules/
-.env
-data/store.local.json
-data/store.smoke.json
+artifacts/
+cache/
+types/
 
+.env
+.env.local
+
+# Estado local: gerado a cada execução
+data/clientes.json
+data/manifesto.json
+logs/*
+!logs/.gitkeep
+
+# Gerado pelo deploy
+frontend/src/rede.config.ts
+frontend/dist/
+*.tsbuildinfo

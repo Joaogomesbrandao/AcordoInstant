@@ -1,156 +1,186 @@
+import path from "node:path";
 import express from "express";
 
-function asyncHandler(handler) {
-  return async (req, res, next) => {
-    try {
-      await handler(req, res, next);
-    } catch (error) {
-      next(error);
-    }
-  };
-}
+import { listarVoosComAtraso } from "../../oracle/voos.mock.js";
+import { ErroApi } from "./erros.js";
 
-export function createApp({ service, blockchainService, config }) {
+/**
+ * API do AcordoInstant.
+ *
+ * Uma rota por ação de cada perfil, e nada além disso. O frontend não fala
+ * com a blockchain: quem assina é sempre o backend, com a carteira do papel
+ * correspondente, e quem lê a cadeia também é o backend, assim existe um
+ * único lugar onde o ABI e os endereços importam.
+ */
+export function criarApp({ config, cliente, companhia, tribunal, oraculo, observador, acesso }) {
   const app = express();
 
   app.use(express.json());
 
-  app.get("/health", (_req, res) => {
-    res.json({
-      status: "ok",
-      blockchainEnabled: blockchainService.isConfigured(),
-      providerMode: config.providerMode
-    });
+  // O Vite (porta 3000) e o backend (3001) são origens diferentes em
+  // desenvolvimento; em produção o mesmo processo serve os dois.
+  app.use((req, res, proximo) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+      res.sendStatus(204);
+      return;
+    }
+
+    proximo();
   });
 
-  app.get(
-    "/api/companies",
-    asyncHandler(async (_req, res) => {
-      res.json(await service.listCompanies());
-    })
-  );
+  /** Executa a rota e, depois de uma escrita, força o log da movimentação. */
+  const rota =
+    (manipulador, { registrar = false } = {}) =>
+    async (req, res, proximo) => {
+      try {
+        const resultado = await manipulador(req, res);
+        if (registrar) await observador.varrer();
+        res.json(resultado);
+      } catch (erro) {
+        proximo(erro);
+      }
+    };
 
-  app.post(
-    "/api/companies",
-    asyncHandler(async (req, res) => {
-      const company = await service.createCompany(req.body);
-      res.status(201).json(company);
-    })
-  );
-
-  app.get(
-    "/api/passengers",
-    asyncHandler(async (_req, res) => {
-      res.json(await service.listPassengers());
-    })
-  );
-
-  app.post(
-    "/api/passengers",
-    asyncHandler(async (req, res) => {
-      const passenger = await service.createPassenger(req.body);
-      res.status(201).json(passenger);
-    })
-  );
+  // --- Estado do sistema ----------------------------------------------------
 
   app.get(
-    "/api/policies",
-    asyncHandler(async (_req, res) => {
-      res.json(await service.listPolicies());
-    })
+    "/health",
+    rota(async () => ({
+      status: "ok",
+      rede: config.rede,
+      chainId: config.chainId,
+      contrato: acesso.endereco
+    }))
   );
 
+  app.get("/api/regra", rota(async () => tribunal.painel().then((painel) => painel.regra)));
+
+  /**
+   * Carteiras de teste geradas na implantação da rede.
+   *
+   * Existe para a demonstração: a tela de cadastro do cliente oferece esses
+   * endereços em vez de exigir que alguém copie do terminal. Nenhuma delas
+   * nasce vinculada a um CPF; o vínculo só acontece no cadastro.
+   */
   app.get(
-    "/api/policies/:policyId",
-    asyncHandler(async (req, res) => {
-      res.json(await service.getPolicy(req.params.policyId));
-    })
+    "/api/carteiras-de-teste",
+    rota(async () => config.usuariosDeTeste)
+  );
+
+  // --- Cliente --------------------------------------------------------------
+
+  app.post(
+    "/api/cliente/cadastro",
+    rota((req) => cliente.cadastrar(req.body ?? {}), { registrar: true })
   );
 
   app.post(
-    "/api/policies",
-    asyncHandler(async (req, res) => {
-      const policy = await service.createPolicy(req.body);
-      res.status(201).json(policy);
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/accept",
-    asyncHandler(async (req, res) => {
-      res.json(await service.acceptPolicy(req.params.policyId, req.body));
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/cancel",
-    asyncHandler(async (req, res) => {
-      res.json(await service.cancelPolicy(req.params.policyId, req.body));
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/blockchain/register",
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.syncPolicyCreation(req.params.policyId, req.body ?? {})
-      );
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/blockchain/accept",
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.syncPolicyAcceptance(req.params.policyId, req.body ?? {})
-      );
-    })
-  );
-
-  app.post(
-    "/api/policies/:policyId/process-settlement",
-    asyncHandler(async (req, res) => {
-      res.json(
-        await service.processSettlement(req.params.policyId, req.body ?? {})
-      );
-    })
+    "/api/cliente/entrar",
+    rota((req) => cliente.entrar(req.body?.cpf))
   );
 
   app.get(
-    "/api/flight-status/:flightNumber",
-    asyncHandler(async (req, res) => {
-      res.json(await service.getFlightStatus(req.params.flightNumber));
-    })
+    "/api/cliente/:cpf/painel",
+    rota((req) => cliente.painel(req.params.cpf))
+  );
+
+  /**
+   * Saca o valor apurado antes de o CPF ter carteira vinculada.
+   *
+   * É a única ação de saque do sistema, e existe uma vez só por CPF: depois
+   * dela o crédito retido zera e toda indenização seguinte é depositada
+   * direto na carteira, sem pedido nenhum.
+   */
+  app.post(
+    "/api/cliente/:cpf/sacar",
+    rota((req) => cliente.sacarPendentes(req.params.cpf), { registrar: true })
+  );
+
+  // --- Companhia aérea ------------------------------------------------------
+
+  app.get(
+    "/api/companhia/painel",
+    rota(() => companhia.painel())
+  );
+
+  app.get(
+    "/api/companhia/voos-disponiveis",
+    rota(() => companhia.voosDisponiveis())
   );
 
   app.post(
-    "/api/internal/flight-status",
-    asyncHandler(async (req, res) => {
-      const update = await service.upsertFlightStatus(req.body);
-      res.status(201).json(update);
-    })
+    "/api/companhia/voos",
+    rota((req) => companhia.cadastrarVoo(req.body?.codigo), { registrar: true })
+  );
+
+  /**
+   * Embarca a lista inteira de passageiros de um voo de uma vez.
+   *
+   * Registrar um por um deixaria o oráculo apurar o voo no meio do
+   * embarque, e o contrato passaria a recusar os passageiros restantes.
+   */
+  app.post(
+    "/api/companhia/passageiros",
+    rota((req) => companhia.embarcarPassageiros(req.body ?? {}), { registrar: true })
   );
 
   app.post(
-    "/api/blockchain/escrow/deposit",
-    asyncHandler(async (req, res) => {
-      res.json(await blockchainService.depositEscrow(req.body ?? {}));
-    })
+    "/api/companhia/resgatar",
+    rota((req) => companhia.resgatarGarantias(req.body?.valorWei ?? null), { registrar: true })
   );
+
+  // --- TJPB (somente leitura) -----------------------------------------------
+
+  app.get(
+    "/api/tribunal/painel",
+    rota(() => tribunal.painel(observador.catalogo))
+  );
+
+  // --- Oráculo --------------------------------------------------------------
+
+  app.get(
+    "/api/oraculo/voos",
+    rota(async () => listarVoosComAtraso())
+  );
+
+  /**
+   * Dispara uma apuração imediata, sem esperar a janela de embarque.
+   *
+   * O oráculo já apura sozinho; esta rota existe para a demonstração não
+   * depender do relógio. Mesmo assim, quem reporta é a conta do oráculo, e o
+   * horário continua vindo da base externa.
+   */
+  app.post(
+    "/api/oraculo/apurar",
+    rota(async () => ({ apurados: await oraculo.apurarPendentes(true) }), { registrar: true })
+  );
+
+  // --- Frontend compilado (modo processo único) -----------------------------
+
+  if (config.servirFrontend) {
+    app.use(express.static(config.pastaFrontend));
+    app.use((req, res, proximo) => {
+      if (req.method !== "GET" || req.path.startsWith("/api") || req.path === "/health") {
+        proximo();
+        return;
+      }
+
+      res.sendFile(path.join(config.pastaFrontend, "index.html"));
+    });
+  }
 
   app.use((req, res) => {
-    res.status(404).json({
-      error: `Rota nao encontrada: ${req.method} ${req.originalUrl}`
-    });
+    res.status(404).json({ erro: `Rota nao encontrada: ${req.method} ${req.originalUrl}` });
   });
 
-  app.use((error, _req, res, _next) => {
-    const statusCode = error.statusCode ?? 500;
-    res.status(statusCode).json({
-      error: error.message ?? "Erro interno"
-    });
+  app.use((erro, _req, res, _proximo) => {
+    const status = erro instanceof ErroApi ? erro.status : (erro.status ?? 500);
+    res.status(status).json({ erro: erro.message ?? "Erro interno" });
   });
 
   return app;
 }
-

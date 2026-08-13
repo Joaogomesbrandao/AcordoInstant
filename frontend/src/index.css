@@ -1,0 +1,243 @@
+:root {
+  --color-bg: #faf6ee;
+  --color-bg-alt: #f2ead9;
+  --color-surface: #ffffff;
+  --color-surface-alt: #fdfbf6;
+  --color-border: #e9e0cd;
+  --color-border-strong: #d8cab0;
+  --color-ink: #201d1a;
+  --color-ink-muted: #6b6459;
+  --color-ink-faint: #a29a8a;
+
+  --color-navy: #1d3557;
+  --color-navy-dark: #142640;
+  --color-navy-soft: #e7ecf3;
+
+  --color-accent: #e8622c;
+  --color-accent-hover: #c94f1f;
+  --color-accent-soft: #fbe6da;
+
+  --color-teal: #2f7a6b;
+  --color-teal-dark: #1f5b4f;
+  --color-teal-soft: #e2efeb;
+
+  --color-gold: #d9a441;
+  --color-gold-soft: #f7ecd6;
+
+  --color-success: #2f7a6b;
+  --color-success-soft: #e2efeb;
+  --color-warning: #b7791f;
+  --color-warning-soft: #fbf0dd;
+  --color-danger: #b5432f;
+  --color-danger-soft: #f8e6e1;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-sm: 0 1px 3px rgba(32, 29, 26, 0.06);
+  --shadow-md: 0 8px 24px rgba(32, 29, 26, 0.08);
+  --shadow-lg: 0 24px 60px rgba(20, 38, 64, 0.16);
+
+  --font-display: 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+code {
+  font-family: var(--font-mono);
+  background: var(--color-navy-soft);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+/* --- Botões --- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1.3rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #fff9f3;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.btn-secondary {
+  background: var(--color-navy-soft);
+  color: var(--color-navy-dark);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #dbe4ef;
+}
+
+.btn-outline {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-ink);
+}
+
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--color-navy);
+  color: var(--color-navy);
+}
+
+.btn-warning {
+  background: var(--color-navy);
+  color: #fff9f3;
+  border-radius: var(--radius-md);
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: var(--color-navy-dark);
+}
+
+/* --- Selos de status --- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.badge-warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.badge-neutral {
+  background: var(--color-border);
+  color: var(--color-ink-muted);
+}
+
+/* --- Superfícies e formulários --- */
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: var(--color-ink);
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  outline: none;
+  font: inherit;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--color-navy);
+  box-shadow: 0 0 0 3px var(--color-navy-soft);
+}
+
+.field-hint {
+  font-size: 0.78rem;
+  color: var(--color-ink-faint);
+  margin-top: 0.4rem;
+  line-height: 1.5;
+}
